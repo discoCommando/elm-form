@@ -44,40 +44,19 @@ type alias Form =
 
 offerValidation : Form.Types.Validation () OfferField1 Offer
 offerValidation =
-    succeed Offer
-        |> andMap (fromString Name string)
+    validate Offer
+        |> fromString Name string
 
 -- MAIN VALIDATION
 
 validation : Form.Types.Validation () Field Output
 validation =
-    succeed Output
-        |> andMap (fromString Field1 int)
-        |> andMap
-            (fromNested OfferField -- USING NESTED VALIDATION
-                (\x -> -- UNFORTUNATE BUT NECESSARY BOILERPLATE
-                    case x of
-                        OfferField field ->
-                            Just field
-
-                        _ ->
-                            Nothing
-                )
-                offerValidation
-            )
-        |> andMap (fromStringList Field3 string )
-        |> andMap
-            (fromNestedList NestedOffers
-                (\x ->
-                    case x of
-                        NestedOffers i x ->
-                            Just ( i, x )
-
-                        _ ->
-                            Nothing
-                )
-                offerValidation
-            )
+    validate Output
+        |> fromString Field1 int
+        |> fromNested OfferField offerValidation 
+        |> fromStringList Field3 string
+        |> fromNestedList NestedOffers offerValidation
+           
 
 -- INIT AND SETTING UP INITIAL VALUES
 

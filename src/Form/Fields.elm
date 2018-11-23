@@ -64,3 +64,16 @@ setInValidation field fieldState fields =
 mergeWithInValidation : Fields error field -> Fields error field -> Fields error field
 mergeWithInValidation fields2 fields1 =
     fields1 |> Map.toList |> List.foldl (\( k, v ) map -> setInValidation k v map) fields2
+
+getFieldsList : (Int -> Field x -> field) -> Fields error field -> List (field, FieldState error)
+getFieldsList fieldF fields = 
+    let 
+        key i = 
+            fieldF i Form.Types.Field 
+        
+        length = 
+            Map.length fields 
+
+    in    
+    List.range 0 (length - 1) |> List.filterMap (\i -> fields |> Map.get (key i) |> Maybe.map (\x -> (key i, x)))
+
