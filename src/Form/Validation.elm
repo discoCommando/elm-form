@@ -1,8 +1,7 @@
 module Form.Validation exposing (..)
 
-import Form.Fields
 import Form.Map as Map
-import Form.Types exposing (Field, Fields)
+import Form.Types exposing (FailState, Field, Fields, Validation(..))
 import Form.Validation.Types exposing (..)
 
 
@@ -203,8 +202,8 @@ failure fieldF error =
     FAIL <| FailState [] [ ( fieldF Form.Types.Field, error ) ] []
 
 
-validate : Fields error field -> Validation error field output -> ( Fields error field, Maybe output )
-validate fields validation =
+validate : Validation error field output -> Fields error field -> ( Fields error field, Maybe output )
+validate validation fields =
     let
         validationResult =
             validateHelper False fields validation

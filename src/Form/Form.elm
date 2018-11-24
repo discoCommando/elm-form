@@ -17,9 +17,12 @@ import Html.Events exposing (onCheck)
 
 form : Validation field error output -> Form field error output
 form validation =
-    { fields = Map.empty
+    let
+        ( fields, output ) =
+            Form.Validation.validate validation Map.empty
+    in
+    { fields = fields
     , submitted = False
     , validation = validation
-    , output = Nothing
+    , output = output
     }
-        |> Form.Validation.validateForm validation

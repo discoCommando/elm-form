@@ -56,8 +56,8 @@ type alias Form =
 
 offerValidation : Form.Types.Validation () OfferField1 Offer
 offerValidation =
-    validate Offer
-        |> fromString Name string
+    succeed Offer
+        |> andMap (fromString Name string)
 
 
 

@@ -2,6 +2,7 @@ module Form.Fields exposing (..)
 
 import Form.Map as Map
 import Form.Types exposing (..)
+import Form.Validation
 
 
 get : Form error field output -> Fields error field
@@ -38,7 +39,7 @@ save transaction =
     in
     form.fields
         |> Map.mergeWith transaction.newFields
-        |> form.validation
+        |> Form.Validation.validate form.validation
         |> (\( newFields, output ) -> { form | fields = newFields, output = output })
 
 
