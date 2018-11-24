@@ -6,22 +6,28 @@ import Form.Types
 import Form.Validation exposing (..)
 
 
--- FIELDS CAN BE EITHER STRING OR BOOL SINCE FIELDS IN HTML ARE ONLY THOSE 
-
+-- FIELDS CAN BE EITHER STRING OR BOOL SINCE FIELDS IN HTML ARE ONLY THOSE
 -- SETTING UP THE FIELDS OF THE FORM
+
 
 type Field
     = Field1 (Form.Types.Field String) -- SIMPLE STRING FIELD
-    | OfferField OfferField1 -- NESTED FIELD 
+    | OfferField OfferField1 -- NESTED FIELD
     | Field3 Int (Form.Types.Field String) -- SIMPLE STRING LIST FIELD
-    | NestedOffers Int OfferField1 -- NESTED LIST FIELD 
+    | NestedOffers Int OfferField1 -- NESTED LIST FIELD
+
+
 
 -- SETTING UP NESTED FIELDS
+
 
 type OfferField1
     = Name (Form.Types.Field String)
 
+
+
 -- OUTPUT OF THE FORM
+
 
 type alias Output =
     { field1 : Int
@@ -30,7 +36,10 @@ type alias Output =
     , field4 : List Offer
     }
 
--- OUTPUT OF THE NESTED FORM 
+
+
+-- OUTPUT OF THE NESTED FORM
+
 
 type alias Offer =
     { name : String
@@ -40,25 +49,33 @@ type alias Offer =
 type alias Form =
     Form.Types.Form () Field Output
 
+
+
 -- OFFER VALIDATION
+
 
 offerValidation : Form.Types.Validation () OfferField1 Offer
 offerValidation =
     validate Offer
         |> fromString Name string
 
+
+
 -- MAIN VALIDATION
+
 
 validation : Form.Types.Validation () Field Output
 validation =
-    validate Output
-        |> fromString Field1 int
-        |> fromNested OfferField offerValidation 
-        |> fromStringList Field3 string
-        |> fromNestedList NestedOffers offerValidation
-           
+    succeed Output
+        |> andMap (fromString Field1 int)
+        |> andMap (fromNested OfferField offerValidation)
+        |> andMap (fromList (\index -> fromString (Field3 index) string))
+        |> andMap (fromList (\index -> fromNested (NestedOffers index) offerValidation))
+
+
 
 -- INIT AND SETTING UP INITIAL VALUES
+
 
 init : Form
 init =

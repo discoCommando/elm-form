@@ -1,4 +1,4 @@
-module Form.Map exposing (Map, empty, exists, filterMap, filterMapList, get, length, mapKey, mapValue, mergeWith, set, toList)
+module Form.Map exposing (Map, empty, exists, filterMap, filterMapList, get, length, mapBoth, mapKey, mapValue, mergeWith, set, toList)
 
 
 type Map key value
@@ -75,6 +75,23 @@ mapValue f map =
     case map of
         M list ->
             M (list |> List.map (\state -> { key = state.key, value = f state.value }))
+
+
+mapBoth : (key1 -> value1 -> ( key2, value2 )) -> Map key1 value1 -> Map key2 value2
+mapBoth f map =
+    case map of
+        M list ->
+            M
+                (list
+                    |> List.map
+                        (\state ->
+                            let
+                                ( key2, value2 ) =
+                                    f state.key state.value
+                            in
+                            { key = key2, value = value2 }
+                        )
+                )
 
 
 filterMap : (key1 -> Maybe key2) -> Map key1 value -> Map key2 value
