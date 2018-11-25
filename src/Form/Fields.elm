@@ -27,7 +27,13 @@ setFieldString fieldF str transaction =
     { transaction | newFields = transaction.newFields |> Map.set (field fieldF) (newFieldState (stringValue str)) }
 
 
+addToList : (FieldList a -> field) -> Transaction error field output -> Transaction error field output
+addToList fieldListF transaction =
+    { transaction | newFields = transaction.newFields |> Form.Types.addIndex fieldListF }
 
+
+
+-- setFieldStringInList : (FieldList )
 -- setFieldNested : (nested -> field) -> (Transaction error nested output -> )
 
 

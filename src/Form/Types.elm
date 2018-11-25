@@ -1,10 +1,16 @@
 module Form.Types exposing (..)
 
 import Form.Map as Map exposing (Map)
+import List
 
 
 type Field a
     = Field
+
+
+type FieldList a
+    = OpaqueList
+    | WithIndex Int a
 
 
 type FieldNested a
@@ -24,6 +30,11 @@ type alias Fields error field =
     Map field (FieldState error)
 
 
+
+-- type alias ListsFields error field =
+--     Map field (ListFieldState error)
+
+
 type alias Transaction error field output =
     { newFields : Fields error field
     , initialForm : Form error field output
@@ -33,11 +44,16 @@ type alias Transaction error field output =
 type FieldValue
     = FVString String
     | FVBool Bool
-    | FVList (List FieldValue)
+    | FVLength Int -- not accessible to anyone
 
 
 
+-- | FVList (List FieldValue)
 -- | FVNested (Fields error field)
+-- type alias ListFieldState error =
+--     { error : Maybe error
+--     , value : List FieldValue
+--     }
 
 
 type alias FieldState error =
@@ -49,13 +65,12 @@ type alias FieldState error =
 type alias FailState error field =
     { succeeded : List field
     , errors : List ( field, error )
-    , notFounds : List field
     }
 
 
 type Validation error field output
-    = STR Bool (Field String -> field) (Maybe String -> Validation error field output)
-    | LIST (Int -> Validation error field output)
+    = STR (Field String -> field) (String -> Validation error field output)
+    | LIST field (Int -> Validation error field output)
     | FAIL (FailState error field)
     | SUCCESS (List field) output
 
@@ -90,22 +105,17 @@ asBool fieldValue =
             Nothing
 
 
-listValue : List FieldValue -> FieldValue
-listValue =
-    FVList
 
-
-asList : FieldValue -> Maybe (List FieldValue)
-asList fieldValue =
-    case fieldValue of
-        FVList l ->
-            Just l
-
-        _ ->
-            Nothing
-
-
-
+-- listValue : List FieldValue -> FieldValue
+-- listValue =
+--     FVList
+-- asList : FieldValue -> Maybe (List FieldValue)
+-- asList fieldValue =
+--     case fieldValue of
+--         FVList l ->
+--             Just l
+--         _ ->
+--             Nothing
 -- nestedValue : Fields error field -> FieldValue
 -- nestedValue = FVNested
 -- asNested : FieldValue -> Maybe (Fields error field)
@@ -115,6 +125,41 @@ asList fieldValue =
 --             Just fs
 --         _ ->
 --             Nothing
+
+
+listOpaque : (FieldList a -> field) -> field
+listOpaque listF =
+    listF OpaqueList
+
+
+listField : (FieldList a -> field) -> Int -> a -> field
+listField listF i a =
+    listF (WithIndex i a)
+
+
+asLength : FieldValue -> Maybe Int
+asLength fieldValue =
+    case fieldValue of
+        FVLength i ->
+            Just i
+
+        _ ->
+            Nothing
+
+
+lengthValue : Int -> FieldValue
+lengthValue =
+    FVLength
+
+
+getIndex : (FieldList a -> field) -> Fields error field -> Int
+getIndex listF fields =
+    fields |> Map.get (listOpaque listF) |> Maybe.andThen (.value >> asLength) |> Maybe.withDefault 0
+
+
+addIndex : (FieldList a -> field) -> Fields error field -> Fields error field
+addIndex listF fields =
+    fields |> Map.set (listOpaque listF) { value = fields |> getIndex listF |> (+) 1 |> lengthValue, error = Nothing }
 
 
 newFieldState : FieldValue -> FieldState error

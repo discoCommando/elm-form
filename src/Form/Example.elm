@@ -22,8 +22,8 @@ type alias Model =
 type Field
     = Field1 (Form.Types.Field String) -- SIMPLE STRING FIELD
     | OfferField OfferField1 -- NESTED FIELD
-    | Field3 Int (Form.Types.Field String) -- SIMPLE STRING LIST FIELD
-    | NestedOffers Int OfferField1 -- NESTED LIST FIELD
+    | Field3 (Form.Types.FieldList (Form.Types.Field String)) -- SIMPLE STRING LIST FIELD
+    | NestedOffers (Form.Types.FieldList OfferField1) -- NESTED LIST FIELD
 
 
 
@@ -81,8 +81,8 @@ validation =
     succeed Output
         |> andMap (fromString Field1 int)
         |> andMap (fromNested OfferField offerValidation)
-        |> andMap (fromList (\index -> fromString (Field3 index) string))
-        |> andMap (fromList (\index -> fromNested (NestedOffers index) offerValidation))
+        |> andMap (fromListString Field3 string)
+        |> andMap (fromList NestedOffers offerValidation)
 
 
 
@@ -95,8 +95,12 @@ init =
         |> Form.Fields.transaction
         |> Form.Fields.setFieldString Field1 "1"
         |> Form.Fields.setFieldString (OfferField << Name) "name"
-        |> Form.Fields.setFieldString (Field3 0) "1"
-        |> Form.Fields.setFieldString (NestedOffers 0 << Name) "name2"
+        |> Form.Fields.addToList Field3
+        |> Form.Fields.addToList NestedOffers
+        |> Form.Fields.setFieldString (NestedOffers << Form.Types.WithIndex 0 << Name) "name"
+        |> Form.Fields.setFieldString (Field3 << Form.Types.WithIndex 0) "str"
+        -- |> Form.Fields.setFieldString (Field3 0) "1"
+        -- |> Form.Fields.setFieldString (NestedOffers 0 << Name) "name2"
         |> Form.Fields.save
 
 

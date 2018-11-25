@@ -1,4 +1,4 @@
-module Form.Map exposing (Map, empty, exists, filterMap, filterMapList, get, length, mapBoth, mapKey, mapValue, mergeWith, set, toList)
+module Form.Map exposing (Map, empty, exists, filterMap, filterMapList, get, length, mapBoth, mapKey, mapValue, mergeWith, remove, set, toList)
 
 
 type Map key value
@@ -61,6 +61,23 @@ get key map =
 
                 False ->
                     get key (M rest)
+
+
+remove : key -> Map key value -> Map key value
+remove key map =
+    case map of
+        M [] ->
+            M []
+
+        M (state :: rest) ->
+            case state.key == key of
+                True ->
+                    M rest
+
+                False ->
+                    case remove key (M rest) of
+                        M rest2 ->
+                            M (state :: rest2)
 
 
 mapKey : (key1 -> key2) -> Map key1 value -> Map key2 value
