@@ -4,10 +4,19 @@ import Form.Fields
 import Form.Form
 import Form.Types
 import Form.Validation exposing (..)
+import Html
 
 
 -- FIELDS CAN BE EITHER STRING OR BOOL SINCE FIELDS IN HTML ARE ONLY THOSE
 -- SETTING UP THE FIELDS OF THE FORM
+
+
+type Msg
+    = None
+
+
+type alias Model =
+    { form : Form }
 
 
 type Field
@@ -23,6 +32,7 @@ type Field
 
 type OfferField1
     = Name (Form.Types.Field String)
+    | Price (Form.Types.Field String)
 
 
 
@@ -43,6 +53,7 @@ type alias Output =
 
 type alias Offer =
     { name : String
+    , price : Maybe Int
     }
 
 
@@ -58,6 +69,7 @@ offerValidation : Form.Types.Validation () OfferField1 Offer
 offerValidation =
     succeed Offer
         |> andMap (fromString Name string)
+        |> andMap (fromString Price (int >> optional))
 
 
 
@@ -96,3 +108,22 @@ init =
 --         ,
 --         ]
 -- viewOffer : List (FormHtml )
+
+
+view : Model -> Html.Html Msg
+view model =
+    Html.text ""
+
+
+update : Msg -> Model -> Model
+update msg model =
+    model
+
+
+main : Program Never Model Msg
+main =
+    Html.beginnerProgram
+        { model = { form = init }
+        , view = view
+        , update = update
+        }

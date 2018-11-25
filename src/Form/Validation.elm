@@ -5,9 +5,14 @@ import Form.Types exposing (FailState, Field, Fields, Validation(..))
 import Form.Validation.Types exposing (..)
 
 
-string : String -> Result error String
-string =
-    Ok
+string : String -> Result () String
+string s =
+    case s of
+        "" ->
+            Err ()
+
+        ss ->
+            Ok ss
 
 
 int : String -> Result () Int
@@ -15,9 +20,20 @@ int =
     String.toInt >> Result.mapError (\_ -> ())
 
 
+optional : Result error output -> Result error (Maybe output)
+optional result =
+    case result of
+        Ok v ->
+            Ok (Just v)
+
+        _ ->
+            Ok Nothing
+
+
 fromString : (Field String -> field) -> (String -> Result error output) -> Validation error field output
 fromString fieldF strVal =
-    STR fieldF
+    STR False
+        fieldF
         (\ms ->
             case ms of
                 Nothing ->
@@ -40,8 +56,8 @@ mapField mapF validation =
         --     PURE output
         -- ERROR errors ->
         --     ERROR (errors |> List.map (\(field, error) -> (mapF field, error)))
-        STR f1 cont ->
-            STR (f1 >> mapF) (\s -> cont s |> mapField mapF)
+        STR b f1 cont ->
+            STR b (f1 >> mapF) (\s -> cont s |> mapField mapF)
 
         -- LIST f1i cont ->
         --     LIST (\i f -> f1i i f |> mapF) (\ls -> cont ls |> mapField mapF)
@@ -65,14 +81,14 @@ fromNested =
 fromList : (Int -> Validation error field output) -> Validation error field (List output)
 fromList validationI =
     LIST
-        (\length -> makeList validationI length)
+        (\length -> makeList validationI 0 length)
 
 
 map : (o1 -> o2) -> Validation error field o1 -> Validation error field o2
 map f validation =
     case validation of
-        STR f1 cont ->
-            STR f1 (\s -> cont s |> map f)
+        STR b f1 cont ->
+            STR b f1 (\s -> cont s |> map f)
 
         LIST fi ->
             LIST (\length -> fi length |> map f)
@@ -87,8 +103,8 @@ map f validation =
 andThen : (output1 -> Validation error field output2) -> Validation error field output1 -> Validation error field output2
 andThen validationCont validation =
     case validation of
-        STR f1 cont ->
-            STR f1 (\s -> cont s |> andThen validationCont)
+        STR b f1 cont ->
+            STR b f1 (\s -> cont s |> andThen validationCont)
 
         LIST fi ->
             LIST (\length -> fi length |> andThen validationCont)
@@ -100,11 +116,32 @@ andThen validationCont validation =
             validationCont output |> addSucceededFields fs
 
 
+andThenIgnoreNotFounds : (Maybe output -> Validation error field (List output)) -> Validation error field output -> Validation error field (List output)
+andThenIgnoreNotFounds validationCont validation =
+    case validation of
+        STR b f1 cont ->
+            STR True f1 (\s -> cont s |> andThenIgnoreNotFounds validationCont)
+
+        LIST fi ->
+            LIST (\length -> fi length |> andThenIgnoreNotFounds validationCont)
+
+        FAIL failState ->
+            case ( failState.succeeded, failState.errors ) of
+                ( [], [] ) ->
+                    validationCont Nothing |> addSucceededFields failState.succeeded
+
+                _ ->
+                    FAIL failState
+
+        SUCCESS fs o ->
+            validationCont (Just o) |> addSucceededFields fs
+
+
 addSucceededFields : List field -> Validation error field output -> Validation error field output
 addSucceededFields fs validation =
     case validation of
-        STR f1 cont ->
-            STR f1 (\s -> cont s |> addSucceededFields fs)
+        STR b f1 cont ->
+            STR b f1 (\s -> cont s |> addSucceededFields fs)
 
         LIST fi ->
             LIST (\length -> fi length |> addSucceededFields fs)
@@ -116,53 +153,61 @@ addSucceededFields fs validation =
             SUCCESS (fs ++ fs2) output
 
 
-makeList : (Int -> Validation error field output) -> Int -> Validation error field (List output)
-makeList validationI i =
-    if i < 0 then
+makeList : (Int -> Validation error field output) -> Int -> Int -> Validation error field (List output)
+makeList validationI i max =
+    let
+        _ =
+            Debug.log (toString i) (validationI i)
+    in
+    if i >= max then
         SUCCESS [] []
     else
-        case validationI i of
-            FAIL { succeeded, errors, notFounds } ->
-                case ( succeeded, errors ) of
-                    ( [], [] ) ->
-                        makeList validationI (i - 1)
+        let
+            next x =
+                x
+                    |> andThenIgnoreNotFounds
+                        (\mo ->
+                            case mo of
+                                Nothing ->
+                                    makeList validationI (i + 1) max
 
-                    _ ->
-                        validationI i
-                            |> andThen
-                                (\o ->
-                                    makeList validationI (i - 1)
+                                Just o ->
+                                    makeList validationI (i + 1) max
                                         |> map
                                             (\os ->
                                                 o :: os
                                             )
-                                )
-
-            x ->
-                x
-                    |> andThen
-                        (\o ->
-                            makeList validationI (i - 1)
-                                |> map
-                                    (\os ->
-                                        o :: os
-                                    )
                         )
+        in
+        case validationI i of
+            FAIL { succeeded, errors, notFounds } ->
+                -- case (succeeded, errors) of
+                --     ([], []) ->
+                --         makeList validationI (i + 1) max
+                --     _ ->
+                --         next <| validationI i
+                SUCCESS [] []
+
+            STR False f cont ->
+                next <| STR True f cont
+
+            _ ->
+                next <| validationI i
 
 
 andMap : Validation error field output1 -> Validation error field (output1 -> output2) -> Validation error field output2
 andMap validation validationF =
     case validation of
-        STR f1 cont ->
-            STR f1 (\s -> andMap (cont s) validationF)
+        STR b f1 cont ->
+            STR b f1 (\s -> andMap (cont s) validationF)
 
         LIST fi ->
             LIST (\length -> andMap (fi length) validationF)
 
         FAIL failState1 ->
             case validationF of
-                STR f1 cont ->
-                    STR f1 (\s -> andMap (FAIL failState1) (cont s))
+                STR b f1 cont ->
+                    STR b f1 (\s -> andMap (FAIL failState1) (cont s))
 
                 LIST fi ->
                     LIST (\length -> fi length |> andMap (FAIL failState1))
@@ -179,8 +224,8 @@ andMap validation validationF =
 
         SUCCESS fs1 o1 ->
             case validationF of
-                STR f1 cont ->
-                    STR f1 (\s -> andMap (SUCCESS fs1 o1) (cont s))
+                STR b f1 cont ->
+                    STR b f1 (\s -> andMap (SUCCESS fs1 o1) (cont s))
 
                 LIST fi ->
                     LIST (\length -> fi length |> andMap (SUCCESS fs1 o1))
@@ -206,7 +251,7 @@ validate : Validation error field output -> Fields error field -> ( Fields error
 validate validation fields =
     let
         validationResult =
-            validateHelper False fields validation
+            validateHelper fields validation |> Debug.log "asd"
 
         newFields =
             fields
@@ -223,13 +268,17 @@ validate validation fields =
     ( newFields, validationResult.result )
 
 
-validateHelper : Bool -> Fields error field -> Validation error field output -> ValidationResult error field output
-validateHelper inList fields validation =
+validateHelper : Fields error field -> Validation error field output -> ValidationResult error field output
+validateHelper fields validation =
     case validation of
-        STR fieldF cont ->
+        STR inList fieldF cont ->
+            let
+                _ =
+                    Debug.log ("STR2 " ++ toString (fieldF Form.Types.Field)) inList
+            in
             case inList of
                 False ->
-                    validateHelper inList
+                    validateHelper
                         fields
                         (cont
                             (fields
@@ -241,7 +290,7 @@ validateHelper inList fields validation =
                         )
 
                 True ->
-                    validateHelper inList
+                    validateHelper
                         fields
                         (cont
                             (fields
@@ -251,10 +300,17 @@ validateHelper inList fields validation =
                         )
 
         LIST contI ->
-            validateHelper True fields <| contI (Map.length fields)
+            let
+                _ =
+                    Debug.log "LIST" ""
+            in
+            validateHelper fields <| contI (Map.length fields)
 
         FAIL failState ->
             let
+                _ =
+                    Debug.log "fs" failState
+
                 succeededMap =
                     failState.succeeded |> List.foldl (\f m -> m |> Map.set f Nothing) Map.empty
 

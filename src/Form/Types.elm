@@ -54,7 +54,7 @@ type alias FailState error field =
 
 
 type Validation error field output
-    = STR (Field String -> field) (Maybe String -> Validation error field output)
+    = STR Bool (Field String -> field) (Maybe String -> Validation error field output)
     | LIST (Int -> Validation error field output)
     | FAIL (FailState error field)
     | SUCCESS (List field) output
