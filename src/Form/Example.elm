@@ -2,6 +2,7 @@ module Form.Example exposing (..)
 
 import Form.Fields
 import Form.Form
+import Form.Transaction
 import Form.Types
 import Form.Validation exposing (..)
 import Html
@@ -89,19 +90,31 @@ validation =
 -- INIT AND SETTING UP INITIAL VALUES
 
 
+initialOfferTransaction : Form.Transaction.Transaction OfferField1
+initialOfferTransaction =
+    Form.Transaction.setString Name "name"
+
+
+initialTransaction : Form.Transaction.Transaction Field
+initialTransaction =
+    Form.Transaction.batch
+        [ Form.Transaction.setString Field1 "1"
+        , Form.Transaction.map OfferField initialOfferTransaction
+        , Form.Transaction.addRow Field3
+        , Form.Transaction.setInList Field3 0 <|
+            Form.Transaction.setString identity "str"
+        , Form.Transaction.addRow NestedOffers
+        , Form.Transaction.setInList NestedOffers 0 <|
+            Form.Transaction.batch
+                [ initialOfferTransaction
+                ]
+        ]
+
+
 init : Form
 init =
     Form.Form.form validation
-        |> Form.Fields.transaction
-        |> Form.Fields.setFieldString Field1 "1"
-        |> Form.Fields.setFieldString (OfferField << Name) "name"
-        |> Form.Fields.addToList Field3
-        |> Form.Fields.addToList NestedOffers
-        |> Form.Fields.setFieldString (NestedOffers << Form.Types.WithIndex 0 << Name) "name"
-        |> Form.Fields.setFieldString (Field3 << Form.Types.WithIndex 0) "str"
-        -- |> Form.Fields.setFieldString (Field3 0) "1"
-        -- |> Form.Fields.setFieldString (NestedOffers 0 << Name) "name2"
-        |> Form.Fields.save
+        |> Form.Transaction.save initialTransaction
 
 
 

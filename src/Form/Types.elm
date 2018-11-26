@@ -27,7 +27,7 @@ type alias Form error field output =
 
 
 type alias Fields error field =
-    Map field (FieldState error)
+    Map field (FieldState error field)
 
 
 
@@ -56,15 +56,24 @@ type FieldValue
 --     }
 
 
-type alias FieldState error =
+type alias FieldState error field =
     { error : Maybe error
     , value : FieldValue
+    , indexOfList : Map field Int
     }
 
 
 type alias FailState error field =
     { succeeded : List field
     , errors : List ( field, error )
+    , toRemove : List field
+    }
+
+
+type alias SuccessState field output =
+    { succeeded : List field
+    , output : output
+    , toRemove : List field
     }
 
 
@@ -72,7 +81,7 @@ type Validation error field output
     = STR (Field String -> field) (String -> Validation error field output)
     | LIST field (Int -> Validation error field output)
     | FAIL (FailState error field)
-    | SUCCESS (List field) output
+    | SUCCESS (SuccessState field output)
 
 
 stringValue : String -> FieldValue
@@ -159,13 +168,14 @@ getIndex listF fields =
 
 addIndex : (FieldList a -> field) -> Fields error field -> Fields error field
 addIndex listF fields =
-    fields |> Map.set (listOpaque listF) { value = fields |> getIndex listF |> (+) 1 |> lengthValue, error = Nothing }
+    fields |> Map.set (listOpaque listF) { value = fields |> getIndex listF |> (+) 1 |> lengthValue, error = Nothing, indexOfList = Map.empty }
 
 
-newFieldState : FieldValue -> FieldState error
+newFieldState : FieldValue -> FieldState error field
 newFieldState fieldValue =
     { error = Nothing
     , value = fieldValue
+    , indexOfList = Map.empty
     }
 
 
@@ -184,17 +194,13 @@ fieldNestedNotOpaque fieldF a =
     fieldF (FieldNestedNotOpaque a)
 
 
-setError : error -> FieldState error -> FieldState error
-setError error fieldState =
-    { fieldState | error = Just error }
 
-
-removeError : FieldState error -> FieldState error
-removeError fieldState =
-    { fieldState | error = Nothing }
-
-
-
+-- setError : error -> FieldState error -> FieldState error
+-- setError error fieldState =
+--     { fieldState | error = Just error }
+-- removeError : FieldState error -> FieldState error
+-- removeError fieldState =
+--     { fieldState | error = Nothing }
 -- mapFieldState : (a -> b) -> FieldState error a -> FieldState error b
 -- mapFieldState f fieldState =
 --     { error = fieldState.error
@@ -217,3 +223,4 @@ mapFields : (a -> b) -> Fields error a -> Fields error b
 mapFields f fields =
     fields
         |> Map.mapKey f
+        |> Map.mapValue (\state -> { state | indexOfList = state.indexOfList |> Map.mapKey f })

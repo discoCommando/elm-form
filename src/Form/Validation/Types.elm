@@ -7,4 +7,5 @@ import Form.Types exposing (Field)
 type alias ValidationResult error field output =
     { fields : Map field (Maybe error)
     , result : Maybe output
+    , toRemove : List field
     }

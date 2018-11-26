@@ -1,7 +1,7 @@
 module Form.Validation exposing (..)
 
 import Form.Map as Map
-import Form.Types exposing (FailState, Field, FieldList, Fields, Validation(..))
+import Form.Types exposing (FailState, Field, FieldList, Fields, SuccessState, Validation(..))
 import Form.Validation.Types exposing (..)
 
 
@@ -37,10 +37,10 @@ fromString fieldF strVal =
         (\s ->
             case strVal s of
                 Err error ->
-                    FAIL <| FailState [] [ ( fieldF Form.Types.Field, error ) ]
+                    FAIL <| FailState [] [ ( fieldF Form.Types.Field, error ) ] []
 
                 Ok v ->
-                    SUCCESS [ fieldF Form.Types.Field ] v
+                    SUCCESS <| SuccessState [ fieldF Form.Types.Field ] v []
         )
 
 
@@ -61,11 +61,11 @@ mapField mapF validation =
 
         -- INPROGRESS errors rest ->
         --     INPROGRESS (errors |> List.map (Tuple.mapFirst mapF)) (rest |> mapField mapF)
-        FAIL { succeeded, errors } ->
-            FAIL <| FailState (succeeded |> List.map mapF) (errors |> List.map (Tuple.mapFirst mapF))
+        FAIL { succeeded, errors, toRemove } ->
+            FAIL <| FailState (succeeded |> List.map mapF) (errors |> List.map (Tuple.mapFirst mapF)) (toRemove |> List.map mapF)
 
-        SUCCESS fs o ->
-            SUCCESS (fs |> List.map mapF) o
+        SUCCESS successState ->
+            SUCCESS { successState | succeeded = successState.succeeded |> List.map mapF, toRemove = successState.toRemove |> List.map mapF }
 
 
 fromNested : (x -> field) -> Validation error x output -> Validation error field output
@@ -96,8 +96,8 @@ map f validation =
         FAIL failState ->
             FAIL failState
 
-        SUCCESS fs o ->
-            SUCCESS fs (o |> f)
+        SUCCESS successState ->
+            SUCCESS { successState | output = successState.output |> f }
 
 
 andThen : (output1 -> Validation error field output2) -> Validation error field output1 -> Validation error field output2
@@ -112,45 +112,42 @@ andThen validationCont validation =
         FAIL failState ->
             FAIL failState
 
-        SUCCESS fs output ->
-            validationCont output |> addSucceededFields fs
+        SUCCESS successState ->
+            validationCont successState.output |> decorateResult successState
 
 
-andThenIgnoreNotFounds : (Maybe output -> Validation error field (List output)) -> Validation error field output -> Validation error field (List output)
-andThenIgnoreNotFounds validationCont validation =
+
+-- andThenIgnoreNotFounds : (Maybe output -> Validation error field (List output)) -> Validation error field output -> Validation error field (List output)
+-- andThenIgnoreNotFounds validationCont validation =
+--     case validation of
+--         STR f1 cont ->
+--             STR f1 (\s -> cont s |> andThenIgnoreNotFounds validationCont)
+--         LIST fl fi ->
+--             LIST fl (\length -> fi length |> andThenIgnoreNotFounds validationCont)
+--         FAIL failState ->
+--             case ( failState.succeeded, failState.errors ) of
+--                 ( [], [] ) ->
+--                     validationCont Nothing |> decorateResult failState.succeeded
+--                 _ ->
+--                     FAIL failState
+--         SUCCESS successState ->
+--             validationCont (successState.output |> ) |> decorateResult succeeded toRemove
+
+
+decorateResult : { a | succeeded : List field, toRemove : List field } -> Validation error field output -> Validation error field output
+decorateResult ({ succeeded, toRemove } as state) validation =
     case validation of
         STR f1 cont ->
-            STR f1 (\s -> cont s |> andThenIgnoreNotFounds validationCont)
+            STR f1 (\s -> cont s |> decorateResult state)
 
         LIST fl fi ->
-            LIST fl (\length -> fi length |> andThenIgnoreNotFounds validationCont)
+            LIST fl (\length -> fi length |> decorateResult state)
 
         FAIL failState ->
-            case ( failState.succeeded, failState.errors ) of
-                ( [], [] ) ->
-                    validationCont Nothing |> addSucceededFields failState.succeeded
+            FAIL <| FailState (succeeded ++ failState.succeeded) failState.errors (toRemove ++ failState.toRemove)
 
-                _ ->
-                    FAIL failState
-
-        SUCCESS fs o ->
-            validationCont (Just o) |> addSucceededFields fs
-
-
-addSucceededFields : List field -> Validation error field output -> Validation error field output
-addSucceededFields fs validation =
-    case validation of
-        STR f1 cont ->
-            STR f1 (\s -> cont s |> addSucceededFields fs)
-
-        LIST fl fi ->
-            LIST fl (\length -> fi length |> addSucceededFields fs)
-
-        FAIL { succeeded, errors } ->
-            FAIL <| FailState (fs ++ succeeded) errors
-
-        SUCCESS fs2 output ->
-            SUCCESS (fs ++ fs2) output
+        SUCCESS successState ->
+            SUCCESS <| SuccessState (succeeded ++ successState.succeeded) successState.output (toRemove ++ successState.toRemove)
 
 
 makeList : (FieldList x -> field) -> Validation error x output -> Int -> Int -> Validation error field (List output)
@@ -160,13 +157,13 @@ makeList fieldListF validation i max =
             Debug.log (toString i) validation
     in
     if i >= max then
-        SUCCESS [] []
+        SUCCESS <| SuccessState [] [] []
     else
         let
             mappedValidation =
                 validation |> mapField (\x -> Form.Types.listField fieldListF i x)
         in
-        SUCCESS [] (::)
+        SUCCESS (SuccessState [] (::) [])
             |> andMap mappedValidation
             |> andMap (makeList fieldListF validation (i + 1) max)
 
@@ -193,33 +190,46 @@ andMap validation validationF =
                         FailState
                             (failState1.succeeded ++ failState2.succeeded)
                             (failState1.errors ++ failState2.errors)
+                            (failState1.toRemove ++ failState2.toRemove)
 
-                SUCCESS fs output ->
-                    FAIL <| FailState (failState1.succeeded ++ fs) failState1.errors
+                SUCCESS successState ->
+                    FAIL <|
+                        FailState
+                            (failState1.succeeded ++ successState.succeeded)
+                            failState1.errors
+                            (failState1.toRemove ++ successState.toRemove)
 
-        SUCCESS fs1 o1 ->
+        SUCCESS successState1 ->
             case validationF of
                 STR f1 cont ->
-                    STR f1 (\s -> andMap (SUCCESS fs1 o1) (cont s))
+                    STR f1 (\s -> andMap (SUCCESS successState1) (cont s))
 
                 LIST fl fi ->
-                    LIST fl (\length -> fi length |> andMap (SUCCESS fs1 o1))
+                    LIST fl (\length -> fi length |> andMap (SUCCESS successState1))
 
-                FAIL { succeeded, errors } ->
-                    FAIL <| FailState (fs1 ++ succeeded) errors
+                FAIL failState ->
+                    FAIL <|
+                        FailState
+                            (successState1.succeeded ++ failState.succeeded)
+                            failState.errors
+                            (successState1.toRemove ++ failState.toRemove)
 
-                SUCCESS fs2 o2 ->
-                    SUCCESS (fs1 ++ fs2) (o2 o1)
+                SUCCESS successState2 ->
+                    SUCCESS <|
+                        SuccessState
+                            (successState1.succeeded ++ successState2.succeeded)
+                            (successState1.output |> successState2.output)
+                            (successState1.toRemove ++ successState2.toRemove)
 
 
 succeed : output -> Validation error field output
-succeed =
-    SUCCESS []
+succeed output =
+    SUCCESS <| SuccessState [] output []
 
 
 failure : (Field a -> field) -> error -> Validation error field output
 failure fieldF error =
-    FAIL <| FailState [] [ ( fieldF Form.Types.Field, error ) ]
+    FAIL <| FailState [] [ ( fieldF Form.Types.Field, error ) ] []
 
 
 validate : Validation error field output -> Fields error field -> ( Fields error field, Maybe output )
@@ -239,8 +249,12 @@ validate validation fields =
                             Just x ->
                                 ( k, { v | error = x } )
                     )
+
+        newFieldsAfterRemoving =
+            validationResult.toRemove
+                |> List.foldl (\f m -> m |> Map.remove f) newFields
     in
-    ( newFields, validationResult.result )
+    ( newFieldsAfterRemoving, validationResult.result )
 
 
 validateHelper : Fields error field -> Validation error field output -> ValidationResult error field output
@@ -284,9 +298,11 @@ validateHelper fields validation =
             in
             { fields = succeededMap |> Map.mergeWith failMap
             , result = Nothing
+            , toRemove = failState.toRemove
             }
 
-        SUCCESS fs output ->
-            { fields = fs |> List.foldl (\f m -> m |> Map.set f Nothing) Map.empty
-            , result = Just output
+        SUCCESS successState ->
+            { fields = successState.succeeded |> List.foldl (\f m -> m |> Map.set f Nothing) Map.empty
+            , result = Just successState.output
+            , toRemove = successState.toRemove
             }
