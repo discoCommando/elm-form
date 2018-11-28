@@ -1,4 +1,23 @@
-module Form.Map exposing (Map, empty, exists, filter, filterMap, filterMapList, get, length, mapBoth, mapKey, mapValue, mergeWith, remove, set, toList, update)
+module Form.Map
+    exposing
+        ( Map
+        , empty
+        , exists
+        , filter
+        , filterMap
+        , get
+        , length
+        , mapBoth
+        , mapKey
+        , mapValue
+        , mergeWith
+        , remove
+        , set
+        , singleton
+        , toList
+        , update
+        , updateWithDefault
+        )
 
 
 type Map key value
@@ -114,11 +133,33 @@ update key updateF map =
                             M (state :: updated)
 
 
+updateWithDefault : key -> (Maybe value -> value) -> Map key value -> Map key value
+updateWithDefault key updateF map =
+    case map of
+        M [] ->
+            M [ { key = key, value = updateF Nothing } ]
+
+        M (state :: rest) ->
+            case state.key == key of
+                True ->
+                    M ({ state | value = state.value |> Just |> updateF } :: rest)
+
+                False ->
+                    case updateWithDefault key updateF (M rest) of
+                        M updated ->
+                            M (state :: updated)
+
+
 mapKey : (key1 -> key2) -> Map key1 value -> Map key2 value
 mapKey f map =
     case map of
         M list ->
             M (list |> List.map (\state -> { key = f state.key, value = state.value }))
+
+
+singleton : key -> value -> Map key value
+singleton key value =
+    M [ { key = key, value = value } ]
 
 
 mapValue : (value1 -> value2) -> Map key value1 -> Map key value2
@@ -161,33 +202,6 @@ filterMap f map =
                                     Nothing
                         )
                 )
-
-
-filterMapList : (key1 -> Maybe ( Int, key2 )) -> Map key1 value -> List (Map key2 value)
-filterMapList f map =
-    case map of
-        M list ->
-            let
-                intMap =
-                    list
-                        |> List.foldl
-                            (\state acc ->
-                                case state.key |> f of
-                                    Nothing ->
-                                        acc
-
-                                    Just ( i, key2 ) ->
-                                        let
-                                            intList =
-                                                acc |> get i |> Maybe.withDefault []
-                                        in
-                                        acc |> set i ({ key = key2, value = state.value } :: intList)
-                            )
-                            empty
-            in
-            case intMap of
-                M intList ->
-                    intList |> List.sortBy .key |> List.map (.value >> M)
 
 
 mergeWith : Map key value -> Map key value -> Map key value

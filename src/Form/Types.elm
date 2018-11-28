@@ -63,17 +63,30 @@ type alias FieldState error field =
     }
 
 
+type alias IndexOfList field =
+    { getter : field
+    , index : Int
+    }
+
+
+type alias FailCell error field =
+    { indexOfList : Map field Int
+    , error : Maybe error
+    }
+
+
 type alias FailState error field =
-    { succeeded : List field
-    , errors : List ( field, error )
-    , toRemove : List field
+    { fields : Map field (FailCell error field) }
+
+
+type alias SuccessCell field =
+    { indexOfList : Map field Int
     }
 
 
 type alias SuccessState field output =
-    { succeeded : List field
-    , output : output
-    , toRemove : List field
+    { output : output
+    , fields : Map field (SuccessCell field)
     }
 
 
@@ -192,6 +205,43 @@ fieldNested fieldF =
 fieldNestedNotOpaque : (FieldNested a -> field) -> a -> field
 fieldNestedNotOpaque fieldF a =
     fieldF (FieldNestedNotOpaque a)
+
+
+createIndexOfList : (FieldList x -> field) -> Int -> IndexOfList field
+createIndexOfList fieldListF i =
+    { index = i
+    , getter = listOpaque fieldListF
+    }
+
+
+mapIndexOfList : (field1 -> field2) -> IndexOfList field1 -> IndexOfList field2
+mapIndexOfList mapf indexOfList =
+    { indexOfList | getter = indexOfList.getter |> mapf }
+
+
+mapFailCell : (field1 -> field2) -> FailCell error field1 -> FailCell error field2
+mapFailCell mapf failCell =
+    { failCell | indexOfList = failCell.indexOfList |> Map.mapKey mapf }
+
+
+mapFailState : (field1 -> field2) -> FailState error field1 -> FailState error field2
+mapFailState mapf failState =
+    { failState | fields = failState.fields |> Map.mapBoth (\key failCell -> ( key |> mapf, mapFailCell mapf failCell )) }
+
+
+successCellToFailCell : SuccessCell field -> FailCell error field
+successCellToFailCell { indexOfList } =
+    FailCell indexOfList Nothing
+
+
+mapSuccessCell : (field1 -> field2) -> SuccessCell field1 -> SuccessCell field2
+mapSuccessCell mapf successCell =
+    { successCell | indexOfList = successCell.indexOfList |> Map.mapKey mapf }
+
+
+mapSuccessState : (field1 -> field2) -> SuccessState field1 output -> SuccessState field2 output
+mapSuccessState mapf successState =
+    { successState | fields = successState.fields |> Map.mapBoth (\key successCell -> ( key |> mapf, mapSuccessCell mapf successCell )) }
 
 
 

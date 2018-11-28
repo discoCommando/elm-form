@@ -108,6 +108,14 @@ initialTransaction =
             Form.Transaction.batch
                 [ initialOfferTransaction
                 ]
+        , Form.Transaction.addRow NestedOffers
+        , Form.Transaction.setInList NestedOffers 1 <|
+            Form.Transaction.batch
+                [ initialOfferTransaction
+                , Form.Transaction.setString Price "2"
+                ]
+        , Form.Transaction.removeRow NestedOffers
+        , Form.Transaction.removeRow NestedOffers
         ]
 
 
