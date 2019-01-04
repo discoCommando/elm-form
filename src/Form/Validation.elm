@@ -14,6 +14,7 @@ import Form.Types
         , mapFailState
         , mapSuccessState
         , successCellToFailCell
+        , FieldNested(..)
         )
 import Form.Validation.Types exposing (..)
 
@@ -81,20 +82,22 @@ mapField mapF validation =
             SUCCESS <| mapSuccessState mapF successState
 
 
-fromNested : (x -> field) -> Validation error x output -> Validation error field output
-fromNested =
-    mapField
+fromNested : (FieldNested x -> field) -> Validation error x output -> Validation error field output
+fromNested fieldNF validation =
+    mapField (\x -> Form.Types.fieldNestedNotOpaque fieldNF x) validation 
 
 
 fromListString : (FieldList (Field String) -> field) -> (String -> Result error output) -> Validation error field (List output)
 fromListString fieldListF strValidation =
-    fromList fieldListF (fromString identity strValidation)
+    -- fromList fieldListF (fromString identity strValidation)
+    LIST (Form.Types.listOpaque fieldListF) 
+        (\length -> makeList fieldListF (fromString identity strValidation) 0 length)
 
 
-fromList : (FieldList x -> field) -> Validation error x output -> Validation error field (List output)
+fromList : (FieldList (FieldNested x) -> field) -> Validation error x output -> Validation error field (List output)
 fromList fieldListF validation =
     LIST (Form.Types.listOpaque fieldListF)
-        (\length -> makeList fieldListF validation 0 length)
+        (\length -> makeList fieldListF (validation |> mapField (Form.Types.WithValue)) 0 length)
 
 
 map : (o1 -> o2) -> Validation error field o1 -> Validation error field o2
@@ -157,7 +160,7 @@ decorateResult fields validation =
             LIST fl (\length -> fi length |> decorateResult fields)
 
         FAIL failState ->
-            FAIL <| FailState <| (fields |> Map.mapValue successCellToFailCell |> Map.mergeWith failState.fields)
+            FAIL <| FailState <| (fields |> Map.mapValue successCellToFailCell |> Form.Types.merge failState.fields)
 
         SUCCESS successState ->
             SUCCESS { successState | fields = fields |> Map.mergeWith successState.fields }
@@ -217,12 +220,12 @@ andMap validation validationF =
                 FAIL failState2 ->
                     FAIL <|
                         FailState
-                            (failState1.fields |> Map.mergeWith failState2.fields)
+                            (failState1.fields |> Form.Types.merge failState2.fields) 
 
                 SUCCESS successState ->
                     FAIL <|
                         FailState
-                            (failState1.fields |> Map.mergeWith (successState.fields |> Map.mapValue successCellToFailCell))
+                            (successState.fields |> Map.mapValue successCellToFailCell |> Form.Types.merge failState1.fields)
 
         SUCCESS successState1 ->
             case validationF of
@@ -235,7 +238,7 @@ andMap validation validationF =
                 FAIL failState ->
                     FAIL <|
                         FailState
-                            (successState1.fields |> Map.mapValue successCellToFailCell |> Map.mergeWith failState.fields)
+                            (successState1.fields |> Map.mapValue successCellToFailCell |> Form.Types.merge failState.fields)
 
                 SUCCESS successState2 ->
                     SUCCESS <|

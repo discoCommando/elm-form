@@ -1,7 +1,7 @@
 module Form.Types exposing (..)
 
 import Form.Map as Map exposing (Map)
-import List
+import Form.UniqueIndex as UIdx
 
 
 type Field a
@@ -14,8 +14,8 @@ type FieldList a
 
 
 type FieldNested a
-    = FieldNested
-    | FieldNestedNotOpaque a
+    = OpaqueNested
+    | WithValue a
 
 
 type alias Form error field output =
@@ -199,12 +199,12 @@ field fieldF =
 
 fieldNested : (FieldNested a -> field) -> field
 fieldNested fieldF =
-    fieldF FieldNested
+    fieldF OpaqueNested
 
 
 fieldNestedNotOpaque : (FieldNested a -> field) -> a -> field
 fieldNestedNotOpaque fieldF a =
-    fieldF (FieldNestedNotOpaque a)
+    fieldF (WithValue a)
 
 
 createIndexOfList : (FieldList x -> field) -> Int -> IndexOfList field
@@ -242,6 +242,30 @@ mapSuccessCell mapf successCell =
 mapSuccessState : (field1 -> field2) -> SuccessState field1 output -> SuccessState field2 output
 mapSuccessState mapf successState =
     { successState | fields = successState.fields |> Map.mapBoth (\key successCell -> ( key |> mapf, mapSuccessCell mapf successCell )) }
+
+
+merge : Map field (FailCell error field) -> Map field (FailCell error field) -> Map field (FailCell error field)
+merge fields1 fields2 =
+    fields1
+        |> Map.foldl
+            (\field failCell m ->
+                m
+                    |> Map.updateWithDefault field
+                        (\mfailCell2 ->
+                            case mfailCell2 of
+                                Nothing ->
+                                    failCell
+
+                                Just failCell2 ->
+                                    case failCell.error of
+                                        Nothing ->
+                                            failCell2
+
+                                        _ ->
+                                            failCell
+                        )
+            )
+            fields2
 
 
 

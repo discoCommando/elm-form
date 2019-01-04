@@ -17,6 +17,7 @@ module Form.Map
         , toList
         , update
         , updateWithDefault
+        , foldl 
         )
 
 
@@ -185,6 +186,14 @@ mapBoth f map =
                         )
                 )
 
+foldl : (key -> value -> acc -> acc) -> acc -> Map key value -> acc
+foldl f acc m =
+    case m of 
+        M [] -> 
+            acc 
+        
+        M (state :: rest) -> 
+            foldl f (f state.key state.value acc) (M rest)
 
 filterMap : (key1 -> Maybe key2) -> Map key1 value -> Map key2 value
 filterMap f map =

@@ -34,6 +34,10 @@ removeRow fieldListF =
     REMOVEROW (Form.Types.listOpaque fieldListF)
 
 
+setNested : (Form.Types.FieldNested x -> field) -> Transaction x -> Transaction field 
+setNested fieldNF = 
+    map (\x -> Form.Types.fieldNestedNotOpaque fieldNF x)
+
 map : (x -> field) -> Transaction x -> Transaction field
 map mapF transaction =
     case transaction of

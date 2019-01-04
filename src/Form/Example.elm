@@ -22,9 +22,9 @@ type alias Model =
 
 type Field
     = Field1 (Form.Types.Field String) -- SIMPLE STRING FIELD
-    | OfferField OfferField1 -- NESTED FIELD
+    | OfferField (Form.Types.FieldNested OfferField1) -- NESTED FIELD
     | Field3 (Form.Types.FieldList (Form.Types.Field String)) -- SIMPLE STRING LIST FIELD
-    | NestedOffers (Form.Types.FieldList OfferField1) -- NESTED LIST FIELD
+    | NestedOffers (Form.Types.FieldList (Form.Types.FieldNested OfferField1)) -- NESTED LIST FIELD
 
 
 
@@ -83,7 +83,7 @@ validation =
         |> andMap (fromString Field1 int)
         |> andMap (fromNested OfferField offerValidation)
         |> andMap (fromListString Field3 string)
-        |> andMap (fromList NestedOffers offerValidation)
+        |> andMap (fromList NestedOffers offerValidation) 
 
 
 
@@ -96,10 +96,10 @@ initialOfferTransaction =
 
 
 initialTransaction : Form.Transaction.Transaction Field
-initialTransaction =
+initialTransaction = 
     Form.Transaction.batch
         [ Form.Transaction.setString Field1 "1"
-        , Form.Transaction.map OfferField initialOfferTransaction
+        , Form.Transaction.setNested OfferField initialOfferTransaction
         , Form.Transaction.addRow Field3
         , Form.Transaction.setInList Field3 0 <|
             Form.Transaction.setString identity "str"
