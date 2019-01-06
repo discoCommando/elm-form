@@ -3,9 +3,12 @@ module Form.Form exposing (..)
 -- COMPOSABLE
 -- TYPE SAFE
 
+import Form.FieldIndex
 import Form.Map as Map
 import Form.Types exposing (..)
+import Form.UniqueIndex
 import Form.Validation
+import Form.Values
 import Html.Attributes
 import Html.Events exposing (onCheck)
 
@@ -17,12 +20,13 @@ import Html.Events exposing (onCheck)
 
 form : Validation field error output -> Form field error output
 form validation =
-    let
-        ( fields, output ) =
-            Form.Validation.validate validation Map.empty
-    in
-    { fields = fields
+    { fieldIndexes = Map.empty
+    , listIndexes = Form.Values.empty
+    , values = Form.Values.empty
     , submitted = False
     , validation = validation
-    , output = output
+    , output = Nothing
+    , fieldIndexToUse = Form.FieldIndex.create
+    , uniqueIndexToUse = Form.UniqueIndex.create
     }
+        |> Form.Validation.validate

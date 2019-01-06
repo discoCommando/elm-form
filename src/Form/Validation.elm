@@ -1,5 +1,6 @@
 module Form.Validation exposing (..)
 
+import Form.FieldIndex
 import Form.Map as Map
 import Form.Types
     exposing
@@ -7,15 +8,16 @@ import Form.Types
         , FailState
         , Field
         , FieldList
+        , FieldNested(..)
+        , FieldValue(..)
         , Fields
+        , Form
         , SuccessCell
         , SuccessState
         , Validation(..)
         , mapFailState
-        , mapSuccessState
-        , successCellToFailCell
-        , FieldNested(..)
         )
+import Form.UniqueIndex exposing (UniqueIndex)
 import Form.Validation.Types exposing (..)
 
 
@@ -51,10 +53,10 @@ fromString fieldF strVal =
         (\s ->
             case strVal s of
                 Err error ->
-                    FAIL <| FailState <| Map.singleton (Form.Types.field fieldF) <| FailCell Map.empty (Just error)
+                    FAIL <| FailState <| Map.singleton (Form.Types.field fieldF) <| FailCell (Just error)
 
                 Ok v ->
-                    SUCCESS <| SuccessState v <| Map.singleton (Form.Types.field fieldF) <| SuccessCell Map.empty
+                    SUCCESS <| SuccessState v
         )
 
 
@@ -71,7 +73,7 @@ mapField mapF validation =
         -- LIST f1i cont ->
         --     LIST (\i f -> f1i i f |> mapF) (\ls -> cont ls |> mapField mapF)
         LIST fl fi ->
-            LIST (fl |> mapF) (\length -> fi length |> mapField mapF)
+            LIST (fl |> mapF) (\uidxs -> fi uidxs |> mapField mapF)
 
         -- INPROGRESS errors rest ->
         --     INPROGRESS (errors |> List.map (Tuple.mapFirst mapF)) (rest |> mapField mapF)
@@ -79,25 +81,25 @@ mapField mapF validation =
             FAIL <| mapFailState mapF failState
 
         SUCCESS successState ->
-            SUCCESS <| mapSuccessState mapF successState
+            SUCCESS successState
 
 
 fromNested : (FieldNested x -> field) -> Validation error x output -> Validation error field output
 fromNested fieldNF validation =
-    mapField (\x -> Form.Types.fieldNestedNotOpaque fieldNF x) validation 
+    mapField (\x -> Form.Types.fieldNestedNotOpaque fieldNF x) validation
 
 
 fromListString : (FieldList (Field String) -> field) -> (String -> Result error output) -> Validation error field (List output)
 fromListString fieldListF strValidation =
     -- fromList fieldListF (fromString identity strValidation)
-    LIST (Form.Types.listOpaque fieldListF) 
-        (\length -> makeList fieldListF (fromString identity strValidation) 0 length)
+    LIST (Form.Types.listOpaque fieldListF)
+        (makeList fieldListF (fromString identity strValidation))
 
 
 fromList : (FieldList (FieldNested x) -> field) -> Validation error x output -> Validation error field (List output)
 fromList fieldListF validation =
     LIST (Form.Types.listOpaque fieldListF)
-        (\length -> makeList fieldListF (validation |> mapField (Form.Types.WithValue)) 0 length)
+        (makeList fieldListF (validation |> mapField Form.Types.WithValue))
 
 
 map : (o1 -> o2) -> Validation error field o1 -> Validation error field o2
@@ -107,7 +109,7 @@ map f validation =
             STR f1 (\s -> cont s |> map f)
 
         LIST fl fi ->
-            LIST fl (\length -> fi length |> map f)
+            LIST fl (\uidxs -> fi uidxs |> map f)
 
         FAIL failState ->
             FAIL failState
@@ -123,81 +125,29 @@ andThen validationCont validation =
             STR f1 (\s -> cont s |> andThen validationCont)
 
         LIST fl fi ->
-            LIST fl (\length -> fi length |> andThen validationCont)
+            LIST fl (\uidxs -> fi uidxs |> andThen validationCont)
 
         FAIL failState ->
             FAIL failState
 
         SUCCESS successState ->
-            validationCont successState.output |> decorateResult successState.fields
+            validationCont successState.output
 
 
+makeList : (FieldList x -> field) -> Validation error x output -> List UniqueIndex -> Validation error field (List output)
+makeList fieldListF validation uidxs =
+    case uidxs of
+        [] ->
+            SUCCESS <| SuccessState []
 
--- andThenIgnoreNotFounds : (Maybe output -> Validation error field (List output)) -> Validation error field output -> Validation error field (List output)
--- andThenIgnoreNotFounds validationCont validation =
---     case validation of
---         STR f1 cont ->
---             STR f1 (\s -> cont s |> andThenIgnoreNotFounds validationCont)
---         LIST fl fi ->
---             LIST fl (\length -> fi length |> andThenIgnoreNotFounds validationCont)
---         FAIL failState ->
---             case ( failState.succeeded, failState.errors ) of
---                 ( [], [] ) ->
---                     validationCont Nothing |> decorateResult failState.succeeded
---                 _ ->
---                     FAIL failState
---         SUCCESS successState ->
---             validationCont (successState.output |> ) |> decorateResult succeeded indexOfList
-
-
-decorateResult : Map.Map field (SuccessCell field) -> Validation error field output -> Validation error field output
-decorateResult fields validation =
-    case validation of
-        STR f1 cont ->
-            STR f1 (\s -> cont s |> decorateResult fields)
-
-        LIST fl fi ->
-            LIST fl (\length -> fi length |> decorateResult fields)
-
-        FAIL failState ->
-            FAIL <| FailState <| (fields |> Map.mapValue successCellToFailCell |> Form.Types.merge failState.fields)
-
-        SUCCESS successState ->
-            SUCCESS { successState | fields = fields |> Map.mergeWith successState.fields }
-
-
-addIndexOfList : (FieldList x -> field) -> Int -> Validation error field output -> Validation error field output
-addIndexOfList fieldListF i validation =
-    case validation of
-        STR f1 cont ->
-            STR f1 (\s -> cont s |> addIndexOfList fieldListF i)
-
-        LIST fl fi ->
-            LIST fl (\length -> fi length |> addIndexOfList fieldListF i)
-
-        FAIL failState ->
-            FAIL { failState | fields = failState.fields |> Map.mapValue (\failCell -> { failCell | indexOfList = failCell.indexOfList |> Map.set (fieldListF |> Form.Types.listOpaque) i }) }
-
-        SUCCESS successState ->
-            SUCCESS { successState | fields = successState.fields |> Map.mapValue (\successCell -> { successCell | indexOfList = successCell.indexOfList |> Map.set (fieldListF |> Form.Types.listOpaque) i }) }
-
-
-makeList : (FieldList x -> field) -> Validation error x output -> Int -> Int -> Validation error field (List output)
-makeList fieldListF validation i max =
-    let
-        _ =
-            Debug.log (toString i) validation
-    in
-    if i >= max then
-        SUCCESS <| SuccessState [] Map.empty
-    else
-        let
-            mappedValidation =
-                validation |> mapField (\x -> Form.Types.listField fieldListF i x) |> addIndexOfList fieldListF i
-        in
-        SUCCESS (SuccessState (::) Map.empty)
-            |> andMap mappedValidation
-            |> andMap (makeList fieldListF validation (i + 1) max)
+        uidx :: rest ->
+            let
+                mappedValidation =
+                    validation |> mapField (\x -> Form.Types.listField fieldListF uidx x)
+            in
+            SUCCESS (SuccessState (::))
+                |> andMap mappedValidation
+                |> andMap (makeList fieldListF validation rest)
 
 
 andMap : Validation error field output1 -> Validation error field (output1 -> output2) -> Validation error field output2
@@ -207,7 +157,7 @@ andMap validation validationF =
             STR f1 (\s -> andMap (cont s) validationF)
 
         LIST fl fi ->
-            LIST fl (\length -> andMap (fi length) validationF)
+            LIST fl (\uidxs -> andMap (fi uidxs) validationF)
 
         FAIL failState1 ->
             case validationF of
@@ -215,17 +165,16 @@ andMap validation validationF =
                     STR f1 (\s -> andMap (FAIL failState1) (cont s))
 
                 LIST fl fi ->
-                    LIST fl (\length -> fi length |> andMap (FAIL failState1))
+                    LIST fl (\uidxs -> fi uidxs |> andMap (FAIL failState1))
 
                 FAIL failState2 ->
                     FAIL <|
                         FailState
-                            (failState1.fields |> Form.Types.merge failState2.fields) 
+                            (failState1.errors |> Form.Types.merge failState2.errors)
 
                 SUCCESS successState ->
                     FAIL <|
-                        FailState
-                            (successState.fields |> Map.mapValue successCellToFailCell |> Form.Types.merge failState1.fields)
+                        failState1
 
         SUCCESS successState1 ->
             case validationF of
@@ -233,90 +182,121 @@ andMap validation validationF =
                     STR f1 (\s -> andMap (SUCCESS successState1) (cont s))
 
                 LIST fl fi ->
-                    LIST fl (\length -> fi length |> andMap (SUCCESS successState1))
+                    LIST fl (\uidxs -> fi uidxs |> andMap (SUCCESS successState1))
 
                 FAIL failState ->
                     FAIL <|
-                        FailState
-                            (successState1.fields |> Map.mapValue successCellToFailCell |> Form.Types.merge failState.fields)
+                        failState
 
                 SUCCESS successState2 ->
                     SUCCESS <|
                         SuccessState
                             (successState2.output successState1.output)
-                            (successState1.fields |> Map.mergeWith successState2.fields)
 
 
 succeed : output -> Validation error field output
 succeed output =
-    SUCCESS <| SuccessState output Map.empty
+    SUCCESS <| SuccessState output
 
 
 failure : (Field a -> field) -> error -> Validation error field output
 failure fieldF error =
-    FAIL <| FailState <| Map.singleton (fieldF Form.Types.Field) (FailCell Map.empty (Just error))
+    FAIL <| FailState <| Map.singleton (fieldF Form.Types.Field) (FailCell (Just error))
 
 
-validate : Validation error field output -> Fields error field -> ( Fields error field, Maybe output )
-validate validation fields =
+validate : Form error field output -> Form error field output
+validate form =
     let
         validationResult =
-            validateHelper fields validation |> Debug.log "asd"
-
-        -- validationFields =
-        --     validationResult.fields
-        --         |> Map.mapBoth
-        --             (\k v ->
-        --                 case Map.get k fields of
-        --             )
-        newFields =
-            -- validationResult.fields |> Map.toList
-            -- |> List.foldl (\(k, v) m ->
-            --     case m |> Map.get k of
-            --         Nothing ->
-            --             m |> Map.set k (newFieldState )
-            --     )
-            fields
-                |> Map.mapBoth
-                    (\k v ->
-                        case Map.get k validationResult.fields of
-                            Nothing ->
-                                ( k, v )
-
-                            Just validationResultCell ->
-                                ( k, { v | error = validationResultCell.error, indexOfList = validationResultCell.indexOfList } )
-                    )
+            validateHelper form form.validation |> Debug.log "asd"
     in
-    ( newFields, validationResult.result )
+    case validationResult of
+        Succeeded successState ->
+            { form | output = Just successState.output } |> clearErrors
+
+        Failed failState ->
+            { form | output = Nothing } |> clearErrors |> setErrors (failState.errors |> Map.toList)
 
 
-validateHelper : Fields error field -> Validation error field output -> ValidationResult error field output
-validateHelper fields validation =
+clearErrors : Form error field output -> Form error field output
+clearErrors form =
+    { form | values = form.values |> Form.FieldIndex.map (\state -> { state | error = Nothing }) }
+
+
+setErrors : List ( field, FailCell error ) -> Form error field output -> Form error field output
+setErrors errors form =
+    case errors of
+        [] ->
+            form
+
+        ( field, failCell ) :: rest ->
+            let
+                ( fieldIndex, newForm ) =
+                    case form.fieldIndexes |> Map.get field of
+                        Nothing ->
+                            ( form.fieldIndexToUse
+                            , { form
+                                | fieldIndexes = form.fieldIndexes |> Map.set field form.fieldIndexToUse
+                                , fieldIndexToUse = form.fieldIndexToUse |> Form.FieldIndex.next
+                              }
+                            )
+
+                        Just fi ->
+                            ( fi, form )
+
+                newValues =
+                    case newForm.values |> Form.FieldIndex.get fieldIndex of
+                        Nothing ->
+                            newForm.values |> Form.FieldIndex.set fieldIndex { value = FVEmpty, error = failCell.error }
+
+                        Just state ->
+                            newForm.values |> Form.FieldIndex.set fieldIndex { state | error = failCell.error }
+            in
+            setErrors rest { newForm | values = newValues }
+
+
+validateHelper : Form error field output -> Validation error field output -> ValidationResult error field output
+validateHelper form validation =
     case validation of
         STR fieldF cont ->
             let
-                _ =
-                    Debug.log ("STR2 " ++ toString (fieldF Form.Types.Field)) False
+                mFieldIndex =
+                    form.fieldIndexes |> Map.get (fieldF Form.Types.Field)
+
+                stringValue =
+                    case mFieldIndex of
+                        Nothing ->
+                            ""
+
+                        Just fi ->
+                            case Form.FieldIndex.get fi form.values of
+                                Nothing ->
+                                    ""
+
+                                Just state ->
+                                    state.value |> Form.Types.asString |> Maybe.withDefault ""
             in
-            validateHelper
-                fields
-                (cont
-                    (fields
-                        |> Map.get (fieldF Form.Types.Field)
-                        |> Maybe.andThen (.value >> Form.Types.asString)
-                        |> Maybe.withDefault ""
-                    )
-                )
+            validateHelper form <| cont stringValue
 
         LIST fl contI ->
             let
-                _ =
-                    Debug.log "LIST" fl
+                mFieldIndex =
+                    form.fieldIndexes |> Map.get fl
 
-                length =
-                    fields |> Map.get fl |> Maybe.andThen (.value >> Form.Types.asLength) |> Maybe.withDefault 0
+                uniqueIndexes =
+                    case mFieldIndex of
+                        Nothing ->
+                            []
+
+                        Just fi ->
+                            case Form.FieldIndex.get fi form.listIndexes of
+                                Nothing ->
+                                    []
+
+                                Just li ->
+                                    li |> Map.toList |> List.map Tuple.first
             in
-            validateHelper fields <| contI length
+            validateHelper form <| contI uniqueIndexes
 
         FAIL failState ->
             let

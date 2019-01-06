@@ -1,6 +1,5 @@
 module Form.Example exposing (..)
 
-import Form.Fields
 import Form.Form
 import Form.Transaction
 import Form.Types
@@ -23,7 +22,7 @@ type alias Model =
 type Field
     = Field1 (Form.Types.Field String) -- SIMPLE STRING FIELD
     | OfferField (Form.Types.FieldNested OfferField1) -- NESTED FIELD
-    | Field3 (Form.Types.FieldList (Form.Types.Field String)) -- SIMPLE STRING LIST FIELD
+      -- | Field3 (Form.Types.FieldList (Form.Types.Field String)) -- SIMPLE STRING LIST FIELD
     | NestedOffers (Form.Types.FieldList (Form.Types.FieldNested OfferField1)) -- NESTED LIST FIELD
 
 
@@ -43,7 +42,8 @@ type OfferField1
 type alias Output =
     { field1 : Int
     , offer : Offer
-    , field3 : List String
+
+    -- , field3 : List String
     , field4 : List Offer
     }
 
@@ -82,8 +82,8 @@ validation =
     succeed Output
         |> andMap (fromString Field1 int)
         |> andMap (fromNested OfferField offerValidation)
-        |> andMap (fromListString Field3 string)
-        |> andMap (fromList NestedOffers offerValidation) 
+        -- |> andMap (fromListString Field3 string)
+        |> andMap (fromList NestedOffers offerValidation)
 
 
 
@@ -96,26 +96,16 @@ initialOfferTransaction =
 
 
 initialTransaction : Form.Transaction.Transaction Field
-initialTransaction = 
+initialTransaction =
     Form.Transaction.batch
         [ Form.Transaction.setString Field1 "1"
         , Form.Transaction.setNested OfferField initialOfferTransaction
-        , Form.Transaction.addRow Field3
-        , Form.Transaction.setInList Field3 0 <|
-            Form.Transaction.setString identity "str"
         , Form.Transaction.addRow NestedOffers
-        , Form.Transaction.setInList NestedOffers 0 <|
-            Form.Transaction.batch
-                [ initialOfferTransaction
-                ]
+            initialOfferTransaction
         , Form.Transaction.addRow NestedOffers
-        , Form.Transaction.setInList NestedOffers 1 <|
-            Form.Transaction.batch
-                [ initialOfferTransaction
-                , Form.Transaction.setString Price "2"
-                ]
-        , Form.Transaction.removeRow NestedOffers
-        , Form.Transaction.removeRow NestedOffers
+            (Form.Transaction.batch
+                []
+            )
         ]
 
 
