@@ -1,4 +1,4 @@
-module Form.UniqueIndex exposing (UniqueIndex, create, equals, fromString, next, toString)
+module Index.UniqueIndex exposing (UniqueIndex, create, equals, fromString, next, toString)
 
 
 type UniqueIndex

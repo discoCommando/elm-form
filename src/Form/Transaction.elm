@@ -1,78 +1,72 @@
 module Form.Transaction exposing (..)
 
-import Form.FieldIndex exposing (FieldIndex)
+import Form exposing (Form, Transaction(..))
+import Form.FieldState
 import Form.Map as Map
-import Form.Types exposing (Form)
-import Form.UniqueIndex exposing (UniqueIndex)
-import Form.Validation
-import Form.Values
-
-
-type Transaction field
-    = STR (Form.Types.Field String -> field) String
-    | ADDROW field (UniqueIndex -> Transaction field)
-    | REMOVEROW field UniqueIndex
-    | BATCH (List (Transaction field))
+import Index.FieldIndex exposing (FieldIndex)
+import Index.FieldIndexDict as FieldIndexDict
+import Index.UniqueIndex exposing (UniqueIndex)
+import Index.UniqueIndexDict as UniqueIndexDict
 
 
 batch : List (Transaction field) -> Transaction field
 batch =
-    BATCH
+    T_BATCH
 
 
-setString : (Form.Types.Field String -> field) -> String -> Transaction field
+setString : (Form.Field String -> field) -> String -> Transaction field
 setString fieldF =
-    STR fieldF
+    T_STR fieldF
 
 
-addRow : (Form.Types.FieldList (Form.Types.FieldNested x) -> field) -> Transaction x -> Transaction field
+addRow : (Form.FieldList x -> field) -> Transaction x -> Transaction field
 addRow fieldListF transaction =
-    ADDROW (Form.Types.listOpaque fieldListF) (\uIdx -> transaction |> map (\x -> Form.Types.listField fieldListF uIdx (Form.Types.WithValue x)))
+    T_ADDROW (Form.listOpaque fieldListF) (\uIdx -> transaction |> map (\x -> Form.listField fieldListF uIdx x))
 
 
-removeRow : (Form.Types.FieldList x -> field) -> UniqueIndex -> Transaction field
+removeRow : (Form.FieldList x -> field) -> UniqueIndex -> Transaction field
 removeRow fieldListF =
-    REMOVEROW (Form.Types.listOpaque fieldListF)
+    T_REMOVEROW (Form.listOpaque fieldListF)
 
 
-setNested : (Form.Types.FieldNested x -> field) -> Transaction x -> Transaction field
+setNested : (Form.FieldNested x -> field) -> Transaction x -> Transaction field
 setNested fieldNF =
-    map (\x -> Form.Types.fieldNestedNotOpaque fieldNF x)
+    map (\x -> Form.fieldNestedNotOpaque fieldNF x)
 
 
 map : (x -> field) -> Transaction x -> Transaction field
 map mapF transaction =
     case transaction of
-        STR f s ->
-            STR (f >> mapF) s
+        T_STR f s ->
+            T_STR (f >> mapF) s
 
-        ADDROW f ut ->
-            ADDROW (mapF f) (\uIdx -> ut uIdx |> map mapF)
+        T_ADDROW f ut ->
+            T_ADDROW (mapF f) (\uIdx -> ut uIdx |> map mapF)
 
-        REMOVEROW f uIdx ->
-            REMOVEROW (mapF f) uIdx
+        T_REMOVEROW f uIdx ->
+            T_REMOVEROW (mapF f) uIdx
 
-        BATCH ls ->
-            BATCH (List.map (map mapF) ls)
+        T_BATCH ls ->
+            T_BATCH (List.map (map mapF) ls)
 
 
-save : Transaction field -> Form.Types.Form error field output -> Form.Types.Form error field output
+save : Transaction field -> Form error field output -> Form error field output
 save transaction form =
-    form |> saveHelper transaction |> Tuple.second |> Form.Validation.validate
+    form |> saveHelper transaction |> Tuple.second |> Form.validate
 
 
-saveHelper : Transaction field -> Form.Types.Form error field output -> ( List FieldIndex, Form.Types.Form error field output )
+saveHelper : Transaction field -> Form error field output -> ( List FieldIndex, Form error field output )
 saveHelper transaction form =
     case transaction of
-        STR fieldF string ->
+        T_STR fieldF string ->
             let
                 ( fieldIndex, newForm ) =
-                    case form.fieldIndexes |> Map.get (fieldF Form.Types.Field) of
+                    case form.fieldIndexes |> Map.get (fieldF Form.Field) of
                         Nothing ->
                             ( form.fieldIndexToUse
                             , { form
-                                | fieldIndexes = form.fieldIndexes |> Map.set (fieldF Form.Types.Field) form.fieldIndexToUse
-                                , fieldIndexToUse = form.fieldIndexToUse |> Form.FieldIndex.next
+                                | fieldIndexes = form.fieldIndexes |> Map.set (fieldF Form.Field) form.fieldIndexToUse
+                                , fieldIndexToUse = form.fieldIndexToUse |> Index.FieldIndex.next
                               }
                             )
 
@@ -80,16 +74,16 @@ saveHelper transaction form =
                             ( fi, form )
 
                 newValues =
-                    case newForm.values |> Form.Values.get fieldIndex of
+                    case newForm.values |> FieldIndexDict.get fieldIndex of
                         Nothing ->
-                            newForm.values |> Form.Values.set fieldIndex { value = Form.Types.stringValue string, error = Nothing }
+                            newForm.values |> FieldIndexDict.set fieldIndex { value = Form.FieldState.stringValue string, error = Nothing }
 
                         Just state ->
-                            newForm.values |> Form.Values.set fieldIndex { state | value = Form.Types.stringValue string }
+                            newForm.values |> FieldIndexDict.set fieldIndex { state | value = Form.FieldState.stringValue string }
             in
             ( [ fieldIndex ], { newForm | values = newValues } )
 
-        ADDROW field transactionF ->
+        T_ADDROW field transactionF ->
             let
                 ( fieldIndex, newForm ) =
                     case form.fieldIndexes |> Map.get field of
@@ -97,7 +91,7 @@ saveHelper transaction form =
                             ( form.fieldIndexToUse
                             , { form
                                 | fieldIndexes = form.fieldIndexes |> Map.set field form.fieldIndexToUse
-                                , fieldIndexToUse = form.fieldIndexToUse |> Form.FieldIndex.next
+                                , fieldIndexToUse = form.fieldIndexToUse |> Index.FieldIndex.next
                               }
                             )
 
@@ -105,42 +99,42 @@ saveHelper transaction form =
                             ( fi, form )
 
                 ( fieldIndexes, newForm2 ) =
-                    saveHelper (transactionF newForm.uniqueIndexToUse) { newForm | uniqueIndexToUse = newForm.uniqueIndexToUse |> Form.UniqueIndex.next }
+                    saveHelper (transactionF newForm.uniqueIndexToUse) { newForm | uniqueIndexToUse = newForm.uniqueIndexToUse |> Index.UniqueIndex.next }
 
                 newListIndexes =
-                    case newForm.listIndexes |> Form.Values.get fieldIndex of
+                    case newForm.listIndexes |> FieldIndexDict.get fieldIndex of
                         Nothing ->
-                            newForm.listIndexes
-                                |> Form.Values.set fieldIndex
-                                    (Map.empty
-                                        |> Map.set newForm.uniqueIndexToUse
-                                            (fieldIndexes |> List.foldl (\fi -> Form.Values.set fi ()) Form.Values.empty)
+                            newForm2.listIndexes
+                                |> FieldIndexDict.set fieldIndex
+                                    (UniqueIndexDict.empty
+                                        |> UniqueIndexDict.set newForm.uniqueIndexToUse
+                                            (fieldIndexes |> List.foldl (\fi -> FieldIndexDict.set fi ()) FieldIndexDict.empty)
                                     )
 
                         Just uniqueIndexes ->
-                            newForm.listIndexes
-                                |> Form.Values.set fieldIndex
+                            newForm2.listIndexes
+                                |> FieldIndexDict.set fieldIndex
                                     (uniqueIndexes
-                                        |> Map.set newForm.uniqueIndexToUse
-                                            (fieldIndexes |> List.foldl (\fi -> Form.Values.set fi ()) Form.Values.empty)
+                                        |> UniqueIndexDict.set newForm.uniqueIndexToUse
+                                            (fieldIndexes |> List.foldl (\fi -> FieldIndexDict.set fi ()) FieldIndexDict.empty)
                                     )
             in
             ( fieldIndex :: fieldIndexes, { newForm2 | listIndexes = newListIndexes } )
 
-        REMOVEROW field uniqueIndex ->
+        T_REMOVEROW field uniqueIndex ->
             case form.fieldIndexes |> Map.get field of
                 Just fieldIndex ->
-                    case form.listIndexes |> Form.Values.get fieldIndex |> Maybe.andThen (Map.get uniqueIndex) of
+                    case form.listIndexes |> FieldIndexDict.get fieldIndex |> Maybe.andThen (UniqueIndexDict.get uniqueIndex) of
                         Nothing ->
                             ( [], form )
 
                         Just fieldIndexSet ->
-                            ( [], removeRowHelper (fieldIndexSet |> Form.Values.keys) form )
+                            ( [], removeRowHelper (fieldIndexSet |> FieldIndexDict.keys) form )
 
                 Nothing ->
                     ( [], form )
 
-        BATCH ls ->
+        T_BATCH ls ->
             ls
                 |> List.foldl
                     (\transaction ( result, newForm ) ->
@@ -162,14 +156,14 @@ removeRowHelper states form =
         fieldIndex :: rest ->
             let
                 newValues =
-                    form.values |> Form.Values.remove fieldIndex
+                    form.values |> FieldIndexDict.remove fieldIndex
 
                 newRest =
-                    case form.listIndexes |> Form.Values.get fieldIndex of
+                    case form.listIndexes |> FieldIndexDict.get fieldIndex of
                         Nothing ->
                             rest
 
                         Just m ->
-                            rest ++ (m |> Map.toList |> List.map (Tuple.second >> Form.Values.keys) |> List.concat)
+                            rest ++ (m |> UniqueIndexDict.values |> List.map FieldIndexDict.keys |> List.concat)
             in
-            removeRowHelper newRest { form | values = newValues, listIndexes = form.listIndexes |> Form.Values.remove fieldIndex }
+            removeRowHelper newRest { form | values = newValues, listIndexes = form.listIndexes |> FieldIndexDict.remove fieldIndex }

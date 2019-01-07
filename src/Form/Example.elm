@@ -1,8 +1,7 @@
 module Form.Example exposing (..)
 
-import Form.Form
+import Form exposing (Field, FieldList, FieldNested, Form)
 import Form.Transaction
-import Form.Types
 import Form.Validation exposing (..)
 import Html
 
@@ -19,11 +18,11 @@ type alias Model =
     { form : Form }
 
 
-type Field
-    = Field1 (Form.Types.Field String) -- SIMPLE STRING FIELD
-    | OfferField (Form.Types.FieldNested OfferField1) -- NESTED FIELD
-      -- | Field3 (Form.Types.FieldList (Form.Types.Field String)) -- SIMPLE STRING LIST FIELD
-    | NestedOffers (Form.Types.FieldList (Form.Types.FieldNested OfferField1)) -- NESTED LIST FIELD
+type MainField
+    = Field1 (Field String) -- SIMPLE STRING FIELD
+    | OfferField (FieldNested OfferField1) -- NESTED FIELD
+      -- | Field3 (FieldList (Types.Field String)) -- SIMPLE STRING LIST FIELD
+    | NestedOffers (FieldList OfferField1) -- NESTED LIST FIELD
 
 
 
@@ -31,8 +30,8 @@ type Field
 
 
 type OfferField1
-    = Name (Form.Types.Field String)
-    | Price (Form.Types.Field String)
+    = Name (Field String)
+    | Price (Field String)
 
 
 
@@ -59,14 +58,14 @@ type alias Offer =
 
 
 type alias Form =
-    Form.Types.Form () Field Output
+    Form.Form () MainField Output
 
 
 
 -- OFFER VALIDATION
 
 
-offerValidation : Form.Types.Validation () OfferField1 Offer
+offerValidation : Form.Validation () OfferField1 Offer
 offerValidation =
     succeed Offer
         |> andMap (fromString Name string)
@@ -77,7 +76,7 @@ offerValidation =
 -- MAIN VALIDATION
 
 
-validation : Form.Types.Validation () Field Output
+validation : Form.Validation () MainField Output
 validation =
     succeed Output
         |> andMap (fromString Field1 int)
@@ -90,12 +89,12 @@ validation =
 -- INIT AND SETTING UP INITIAL VALUES
 
 
-initialOfferTransaction : Form.Transaction.Transaction OfferField1
+initialOfferTransaction : Form.Transaction OfferField1
 initialOfferTransaction =
     Form.Transaction.setString Name "name"
 
 
-initialTransaction : Form.Transaction.Transaction Field
+initialTransaction : Form.Transaction MainField
 initialTransaction =
     Form.Transaction.batch
         [ Form.Transaction.setString Field1 "1"
@@ -111,7 +110,7 @@ initialTransaction =
 
 init : Form
 init =
-    Form.Form.form validation
+    Form.form validation
         |> Form.Transaction.save initialTransaction
 
 
