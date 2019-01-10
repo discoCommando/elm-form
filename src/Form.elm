@@ -57,15 +57,22 @@ fieldNestedNotOpaque fieldF a =
     fieldF (WithValue a)
 
 
+type alias UniqueIndexDictState =
+    { fieldIndexSet : FieldIndexDict ()
+    , order : Int -- made for the order
+    }
+
+
 type alias Form error field output =
     { fieldIndexes : Map field FieldIndex
-    , listIndexes : FieldIndexDict (UniqueIndexDict (FieldIndexDict ()))
+    , listIndexes : FieldIndexDict (UniqueIndexDict UniqueIndexDictState)
     , values : FieldIndexDict (FieldState error)
     , submitted : Bool
     , validation : Validation error field output
     , output : Maybe output
     , fieldIndexToUse : FieldIndex
     , uniqueIndexToUse : UniqueIndex
+    , counter : Int
     }
 
 
@@ -79,6 +86,7 @@ form validation =
     , output = Nothing
     , fieldIndexToUse = FieldIndex.create
     , uniqueIndexToUse = UniqueIndex.create
+    , counter = 0
     }
         |> validate
 
@@ -256,3 +264,63 @@ type Transaction field
     | T_ADDROW field (UniqueIndex -> Transaction field)
     | T_REMOVEROW field UniqueIndex
     | T_BATCH (List (Transaction field))
+
+
+get : (Field String -> field) -> Form error field output -> String
+get fieldF form =
+    case form.fieldIndexes |> Map.get (field fieldF) of
+        Nothing ->
+            ""
+
+        Just fieldIndex ->
+            case form.values |> FieldIndexDict.get fieldIndex of
+                Nothing ->
+                    ""
+
+                Just fieldState ->
+                    case fieldState.value of
+                        Form.FieldState.FVString s ->
+                            s
+
+                        _ ->
+                            ""
+
+
+getError : (Field x -> field) -> Form error field output -> Maybe error
+getError fieldF form =
+    case form.fieldIndexes |> Map.get (field fieldF) of
+        Nothing ->
+            Nothing
+
+        Just fieldIndex ->
+            case form.values |> FieldIndexDict.get fieldIndex of
+                Nothing ->
+                    Nothing
+
+                Just fieldState ->
+                    fieldState.error
+
+
+at : (a -> field1) -> (FieldNested field1 -> field) -> (a -> field)
+at f fn a =
+    fn (WithValue (f a))
+
+
+atIndex : UniqueIndex -> (a -> field1) -> (FieldList field1 -> field) -> (a -> field)
+atIndex uiq f fn a =
+    fn (WithIndex uiq (f a))
+
+
+indexes : (FieldList x -> field) -> Form error field output -> List UniqueIndex
+indexes fieldF form =
+    case form.fieldIndexes |> Map.get (listOpaque fieldF) of
+        Nothing ->
+            []
+
+        Just fieldIndex ->
+            case form.listIndexes |> FieldIndexDict.get fieldIndex of
+                Nothing ->
+                    []
+
+                Just uniqueIndexes ->
+                    uniqueIndexes |> UniqueIndexDict.toList |> List.sortBy (Tuple.second >> .order) |> List.map Tuple.first

@@ -55,6 +55,11 @@ save transaction form =
     form |> saveHelper transaction |> Tuple.second |> Form.validate
 
 
+empty : Transaction field
+empty =
+    batch []
+
+
 saveHelper : Transaction field -> Form error field output -> ( List FieldIndex, Form error field output )
 saveHelper transaction form =
     case transaction of
@@ -98,38 +103,71 @@ saveHelper transaction form =
                         Just fi ->
                             ( fi, form )
 
+                uniqueIndexToSave =
+                    newForm.uniqueIndexToUse
+
                 ( fieldIndexes, newForm2 ) =
                     saveHelper (transactionF newForm.uniqueIndexToUse) { newForm | uniqueIndexToUse = newForm.uniqueIndexToUse |> Index.UniqueIndex.next }
 
                 newListIndexes =
-                    case newForm.listIndexes |> FieldIndexDict.get fieldIndex of
-                        Nothing ->
-                            newForm2.listIndexes
-                                |> FieldIndexDict.set fieldIndex
-                                    (UniqueIndexDict.empty
-                                        |> UniqueIndexDict.set newForm.uniqueIndexToUse
-                                            (fieldIndexes |> List.foldl (\fi -> FieldIndexDict.set fi ()) FieldIndexDict.empty)
-                                    )
+                    newForm2.listIndexes
+                        |> FieldIndexDict.update fieldIndex
+                            (\muniqueIndexes ->
+                                muniqueIndexes
+                                    |> Maybe.withDefault UniqueIndexDict.empty
+                                    |> UniqueIndexDict.set uniqueIndexToSave
+                                        { fieldIndexSet = fieldIndexes |> List.foldl (\fi -> FieldIndexDict.set fi ()) FieldIndexDict.empty
+                                        , order = newForm2.counter
+                                        }
+                                    |> Just
+                            )
 
-                        Just uniqueIndexes ->
-                            newForm2.listIndexes
-                                |> FieldIndexDict.set fieldIndex
-                                    (uniqueIndexes
-                                        |> UniqueIndexDict.set newForm.uniqueIndexToUse
-                                            (fieldIndexes |> List.foldl (\fi -> FieldIndexDict.set fi ()) FieldIndexDict.empty)
-                                    )
+                -- case newForm2.listIndexes |> FieldIndexDict.get fieldIndex of
+                --     Nothing ->
+                --         ( newForm2.listIndexes
+                --             |> FieldIndexDict.set fieldIndex
+                --
+                --                     (UniqueIndexDict.empty
+                --                         |> UniqueIndexDict.set uniqueIndexToSave
+                --                             )
+                --         , { newForm2 | counter = newForm2.counter + 1 }
+                --         )
+                --
+                --     Just uniqueIndexes ->
+                --         ( newForm2.listIndexes
+                --             |> FieldIndexDict.set fieldIndex
+                --                 (uniqueIndexes |>
+                --                     | fieldIndexSet =
+                --                         uniqueIndexes.fieldIndexSet
+                --                             |> UniqueIndexDict.set newForm.uniqueIndexToUse
+                --                                 (fieldIndexes |> List.foldl (\fi -> FieldIndexDict.set fi ()) FieldIndexDict.empty)
+                --                 }
+                --         , newForm2
+                --         )
             in
-            ( fieldIndex :: fieldIndexes, { newForm2 | listIndexes = newListIndexes } )
+            ( fieldIndex :: fieldIndexes, { newForm2 | listIndexes = newListIndexes, counter = newForm2.counter + 1 } )
 
         T_REMOVEROW field uniqueIndex ->
             case form.fieldIndexes |> Map.get field of
                 Just fieldIndex ->
-                    case form.listIndexes |> FieldIndexDict.get fieldIndex |> Maybe.andThen (UniqueIndexDict.get uniqueIndex) of
+                    case form.listIndexes |> FieldIndexDict.get fieldIndex of
                         Nothing ->
                             ( [], form )
 
-                        Just fieldIndexSet ->
-                            ( [], removeRowHelper (fieldIndexSet |> FieldIndexDict.keys) form )
+                        Just uniqueIndexes ->
+                            case uniqueIndexes |> UniqueIndexDict.get uniqueIndex of
+                                Nothing ->
+                                    ( [], form )
+
+                                Just fieldIndexSetState ->
+                                    ( []
+                                    , { form
+                                        | listIndexes =
+                                            form.listIndexes
+                                                |> FieldIndexDict.set fieldIndex (uniqueIndexes |> UniqueIndexDict.remove uniqueIndex)
+                                      }
+                                        |> removeRowHelper (fieldIndexSetState.fieldIndexSet |> FieldIndexDict.keys)
+                                    )
 
                 Nothing ->
                     ( [], form )
@@ -164,6 +202,6 @@ removeRowHelper states form =
                             rest
 
                         Just m ->
-                            rest ++ (m |> UniqueIndexDict.values |> List.map FieldIndexDict.keys |> List.concat)
+                            rest ++ (m |> UniqueIndexDict.values |> List.map (.fieldIndexSet >> FieldIndexDict.keys) |> List.concat)
             in
             removeRowHelper newRest { form | values = newValues, listIndexes = form.listIndexes |> FieldIndexDict.remove fieldIndex }

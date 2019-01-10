@@ -23,6 +23,11 @@ set fieldIndex x values =
     values |> Dict.insert (fieldIndex |> FieldIndex.toString) x
 
 
+update : FieldIndex -> (Maybe x -> Maybe x) -> FieldIndexDict x -> FieldIndexDict x
+update fieldIndex fun values =
+    values |> Dict.update (fieldIndex |> FieldIndex.toString) fun
+
+
 empty : FieldIndexDict x
 empty =
     Dict.empty

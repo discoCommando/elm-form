@@ -41,3 +41,17 @@ keys =
 values : UniqueIndexDict x -> List x
 values =
     Dict.values
+
+
+toList : UniqueIndexDict x -> List ( UniqueIndex, x )
+toList =
+    Dict.toList
+        >> List.filterMap
+            (\( s, x ) ->
+                case UniqueIndex.fromString s of
+                    Nothing ->
+                        Nothing
+
+                    Just ui ->
+                        Just ( ui, x )
+            )
