@@ -15,6 +15,7 @@ import Index.UniqueIndex exposing (UniqueIndex)
 
 type Msg
     = SetString (Field String -> MainField) String
+    | SetInList UniqueIndex (FieldList OfferField1 -> MainField) (Field String -> OfferField1) String
     | AddRow (FieldList OfferField1 -> MainField)
     | RemoveRow UniqueIndex (FieldList OfferField1 -> MainField)
 
@@ -162,16 +163,13 @@ view model =
 
 viewOffer : UniqueIndex -> Model -> Html Msg
 viewOffer uniqueIndex model =
+    let
+        _ =
+            Debug.log "nestedoffers" NestedOffers
+    in
     div []
-        [ textInput (NestedOffers |> Form.atIndex uniqueIndex Name)
-            model.form
-            []
-            []
-        , textInput
-            (NestedOffers |> Form.atIndex uniqueIndex Price)
-            model.form
-            []
-            []
+        [ input [ onInput (SetInList uniqueIndex NestedOffers Name), value (model.form |> Form.get (NestedOffers |> Form.atIndex uniqueIndex Name)), type_ "text" ] []
+        , input [ onInput (SetInList uniqueIndex NestedOffers Price), value (model.form |> Form.get (NestedOffers |> Form.atIndex uniqueIndex Price)), type_ "text" ] []
         , button [ onClick (RemoveRow uniqueIndex NestedOffers) ] [ text "-" ]
         ]
 
@@ -194,6 +192,9 @@ update msg model =
 
         RemoveRow uniqueIndex function ->
             { model | form = model.form |> Form.Transaction.save (Form.Transaction.removeRow function uniqueIndex) }
+
+        SetInList uniqueIndex listF nestedF string ->
+            { model | form = model.form |> Form.Transaction.save (Form.Transaction.setAtIndex listF uniqueIndex (Form.Transaction.setString nestedF string)) }
 
 
 main : Program Never Model Msg

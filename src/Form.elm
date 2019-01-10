@@ -18,6 +18,14 @@ type Validation error field output
     | V_SUCCESS (SuccessState output)
 
 
+type Transaction field
+    = T_STR (Field String -> field) String
+    | T_ADDROW field (UniqueIndex -> Transaction field)
+    | T_SETINLIST field UniqueIndex (Transaction field)
+    | T_REMOVEROW field UniqueIndex
+    | T_BATCH (List (Transaction field))
+
+
 type Field a
     = Field
 
@@ -259,13 +267,6 @@ merge fields1 fields2 =
             fields2
 
 
-type Transaction field
-    = T_STR (Field String -> field) String
-    | T_ADDROW field (UniqueIndex -> Transaction field)
-    | T_REMOVEROW field UniqueIndex
-    | T_BATCH (List (Transaction field))
-
-
 get : (Field String -> field) -> Form error field output -> String
 get fieldF form =
     case form.fieldIndexes |> Map.get (field fieldF) of
@@ -324,3 +325,18 @@ indexes fieldF form =
 
                 Just uniqueIndexes ->
                     uniqueIndexes |> UniqueIndexDict.toList |> List.sortBy (Tuple.second >> .order) |> List.map Tuple.first
+
+
+getFieldIndex : field -> Form error field output -> ( Form error field output, FieldIndex )
+getFieldIndex field form =
+    case form.fieldIndexes |> Map.get field of
+        Nothing ->
+            ( { form
+                | fieldIndexes = form.fieldIndexes |> Map.set field form.fieldIndexToUse
+                , fieldIndexToUse = form.fieldIndexToUse |> FieldIndex.next
+              }
+            , form.fieldIndexToUse
+            )
+
+        Just fi ->
+            ( form, fi )
