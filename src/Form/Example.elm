@@ -3,7 +3,8 @@ module Form.Example exposing (..)
 import Form exposing (Field, FieldList, FieldNested, Form)
 import Form.Transaction
 import Form.Validation exposing (..)
-import Html exposing (Html, button, div, input, p, text)
+import Form.View
+import Html exposing (Html, button, div, input, p, span, text)
 import Html.Attributes exposing (type_, value)
 import Html.Events exposing (onClick, onInput)
 import Index.UniqueIndex exposing (UniqueIndex)
@@ -18,6 +19,12 @@ type Msg
     | SetInList UniqueIndex (FieldList OfferField1 -> MainField) (Field String -> OfferField1) String
     | AddRow (FieldList OfferField1 -> MainField)
     | RemoveRow UniqueIndex (FieldList OfferField1 -> MainField)
+    | MainFormMsg (Form.View.FormMsg MainField)
+
+
+type FormMsg a msg
+    = T (Form.Transaction a)
+    | NT msg
 
 
 type alias Model =
@@ -79,7 +86,7 @@ offerValidation : Form.Validation () OfferField1 Offer
 offerValidation =
     succeed Offer
         |> andMap (fromString Name string)
-        |> andMap (fromString Price (int >> optional))
+        |> andMap (fromString Price (optional int))
 
 
 
@@ -157,7 +164,7 @@ view model =
                 text "there is an error here"
         , p [] []
         , button [ onClick (AddRow NestedOffers) ] [ text "+" ]
-        , model.form |> Form.indexes NestedOffers |> List.map (\uid -> viewOffer uid model) |> div []
+        , model.form |> Form.indexes NestedOffers |> List.map (\uid -> viewOffer2 |> Form.View.inIndex uid NestedOffers) |> Form.View.div [] |> Form.View.inForm model.form |> Html.map MainFormMsg
         ]
 
 
@@ -172,6 +179,32 @@ viewOffer uniqueIndex model =
         , input [ onInput (SetInList uniqueIndex NestedOffers Price), value (model.form |> Form.get (NestedOffers |> Form.atIndex uniqueIndex Price)), type_ "text" ] []
         , button [ onClick (RemoveRow uniqueIndex NestedOffers) ] [ text "-" ]
         ]
+
+
+viewOffer2 : Form.View () OfferField1 (Form.View.FormMsg OfferField1)
+viewOffer2 =
+    Form.View.div
+        []
+        [ textInput2 Name
+        , textInput2 Price
+        ]
+
+
+textInput2 : (Field String -> field) -> Form.View () field (Form.View.FormMsg field)
+textInput2 fieldF =
+    Form.View.stringInput fieldF
+        (\onInputMsg str error ->
+            span
+                []
+                [ input [ onInput onInputMsg, value str ] []
+                , case error of
+                    Nothing ->
+                        text ""
+
+                    Just _ ->
+                        text " Error"
+                ]
+        )
 
 
 
@@ -195,6 +228,9 @@ update msg model =
 
         SetInList uniqueIndex listF nestedF string ->
             { model | form = model.form |> Form.Transaction.save (Form.Transaction.setAtIndex listF uniqueIndex (Form.Transaction.setString nestedF string)) }
+
+        MainFormMsg formMsg ->
+            { model | form = Form.View.update formMsg model.form }
 
 
 main : Program Never Model Msg

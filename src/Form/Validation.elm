@@ -20,14 +20,14 @@ int =
     String.toInt >> Result.mapError (\_ -> ())
 
 
-optional : Result error output -> Result error (Maybe output)
-optional result =
-    case result of
-        Ok v ->
-            Ok (Just v)
+optional : (String -> Result error output) -> (String -> Result error (Maybe output))
+optional f s =
+    case s of
+        "" ->
+            Ok Nothing
 
         _ ->
-            Ok Nothing
+            f s |> Result.map Just
 
 
 fromString : (Field String -> field) -> (String -> Result error output) -> Validation error field output
@@ -67,6 +67,9 @@ mapField mapF validation =
         V_SUCCESS successState ->
             V_SUCCESS successState
 
+        V_LAZY f ->
+            V_LAZY (f >> mapField mapF)
+
 
 fromNested : (FieldNested x -> field) -> Validation error x output -> Validation error field output
 fromNested fieldNF validation =
@@ -94,6 +97,9 @@ map f validation =
         V_SUCCESS successState ->
             V_SUCCESS { successState | output = successState.output |> f }
 
+        V_LAZY f_ ->
+            V_LAZY (f_ >> map f)
+
 
 andThen : (output1 -> Validation error field output2) -> Validation error field output1 -> Validation error field output2
 andThen validationCont validation =
@@ -109,6 +115,9 @@ andThen validationCont validation =
 
         V_SUCCESS successState ->
             validationCont successState.output
+
+        V_LAZY f ->
+            V_LAZY (f >> andThen validationCont)
 
 
 makeList : (FieldList x -> field) -> Validation error x output -> List UniqueIndex -> Validation error field (List output)
@@ -153,6 +162,9 @@ andMap validation validationF =
                     V_FAIL <|
                         failState1
 
+                V_LAZY f ->
+                    V_LAZY (f >> andMap (V_FAIL failState1))
+
         V_SUCCESS successState1 ->
             case validationF of
                 V_STR f1 cont ->
@@ -170,6 +182,12 @@ andMap validation validationF =
                         SuccessState
                             (successState2.output successState1.output)
 
+                V_LAZY f ->
+                    V_LAZY (f >> andMap (V_SUCCESS successState1))
+
+        V_LAZY f ->
+            V_LAZY (f >> (\v_ -> andMap v_ validationF))
+
 
 succeed : output -> Validation error field output
 succeed output =
@@ -179,3 +197,8 @@ succeed output =
 failure : (Field a -> field) -> error -> Validation error field output
 failure fieldF error =
     V_FAIL <| FailState <| Map.singleton (fieldF Form.Field) (FailCell (Just error))
+
+
+lazy : (() -> Validation error field output) -> Validation error field output
+lazy =
+    V_LAZY

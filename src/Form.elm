@@ -5,6 +5,7 @@ module Form exposing (..)
 
 import Form.FieldState exposing (FieldState)
 import Form.Map as Map exposing (Map)
+import Html exposing (Html)
 import Index.FieldIndex as FieldIndex exposing (..)
 import Index.FieldIndexDict as FieldIndexDict exposing (..)
 import Index.UniqueIndex as UniqueIndex exposing (..)
@@ -16,6 +17,7 @@ type Validation error field output
     | V_LIST field (List UniqueIndex -> Validation error field output)
     | V_FAIL (FailState error field)
     | V_SUCCESS (SuccessState output)
+    | V_LAZY (() -> Validation error field output)
 
 
 type Transaction field
@@ -24,6 +26,15 @@ type Transaction field
     | T_SETINLIST field UniqueIndex (Transaction field)
     | T_REMOVEROW field UniqueIndex
     | T_BATCH (List (Transaction field))
+
+
+type View error field msg
+    = VI_STRING (Field String -> field) (String -> Maybe error -> Html msg)
+    | VI_HTML (Html msg)
+    | VI_VIEW String (List (Html.Attribute msg)) (List (View error field msg))
+    | VI_REMOVELASTROW field (Maybe UniqueIndex -> Html msg)
+    | VI_INLIST field (List UniqueIndex -> View error field msg)
+    | VI_LAZY (() -> View error field msg)
 
 
 type Field a
@@ -202,6 +213,9 @@ validateHelper form validation =
 
         V_SUCCESS successState ->
             successState |> fromSuccessState
+
+        V_LAZY f ->
+            validateHelper form (f ())
 
 
 type alias FailCell error =
