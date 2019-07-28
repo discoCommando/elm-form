@@ -1,4 +1,39 @@
-module Form exposing (FailCell, FailState, Field(..), FieldList(..), FieldNested(..), Form, SuccessState, Transaction(..), UniqueIndexDictState, Validation(..), ValidationResult(..), ValidationResultCell, View(..), at, atIndex, clearErrors, field, fieldNested, fieldNestedNotOpaque, form, fromFailState, fromSuccessState, get, getError, getFieldIndex, indexes, listField, listOpaque, mapFailState, merge, setErrors, validate, validateHelper)
+module Form exposing
+    ( FailCell
+    , FailState
+    , Field(..)
+    , FieldList(..)
+    , FieldNested(..)
+    , Form
+    , SuccessState
+    , Transaction(..)
+    , UniqueIndexDictState
+    , Validation(..)
+    , ValidationResult(..)
+    , ValidationResultCell
+    , View(..)
+    , at
+    , atIndex
+    , clearErrors
+    , field
+    , fieldNested
+    , fieldNestedNotOpaque
+    , form
+    , fromFailState
+    , fromSuccessState
+    , get
+    , getError
+    , getFieldIndex
+    , getOutput
+    , indexes
+    , listField
+    , listOpaque
+    , mapFailState
+    , merge
+    , setErrors
+    , validate
+    , validateHelper
+    )
 
 -- COMPOSABLE
 -- TYPE SAFE
@@ -354,3 +389,8 @@ getFieldIndex field_ form_ =
 
         Just fi ->
             ( form_, fi )
+
+
+getOutput : Form error field output -> Maybe output
+getOutput form_ =
+    form_.output
