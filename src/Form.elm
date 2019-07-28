@@ -111,44 +111,44 @@ form validation =
 
 
 validate : Form error field output -> Form error field output
-validate form =
+validate form_ =
     let
         validationResult =
-            validateHelper form form.validation |> Debug.log "asd"
+            validateHelper form_ form_.validation |> Debug.log "asd"
     in
     case validationResult of
         Succeeded successState ->
-            { form | output = Just successState.output } |> clearErrors
+            { form_ | output = Just successState.output } |> clearErrors
 
         Failed failState ->
-            { form | output = Nothing } |> clearErrors |> setErrors (failState.errors |> Map.toList)
+            { form_ | output = Nothing } |> clearErrors |> setErrors (failState.errors |> Map.toList)
 
 
 clearErrors : Form error field output -> Form error field output
-clearErrors form =
-    { form | values = form.values |> FieldIndexDict.map (\state -> { state | error = Nothing }) }
+clearErrors form_ =
+    { form_ | values = form_.values |> FieldIndexDict.map (\state -> { state | error = Nothing }) }
 
 
 setErrors : List ( field, FailCell error ) -> Form error field output -> Form error field output
-setErrors errors form =
+setErrors errors form_ =
     case errors of
         [] ->
-            form
+            form_
 
-        ( field, failCell ) :: rest ->
+        ( field_, failCell ) :: rest ->
             let
                 ( fieldIndex, newForm ) =
-                    case form.fieldIndexes |> Map.get field of
+                    case form_.fieldIndexes |> Map.get field_ of
                         Nothing ->
-                            ( form.fieldIndexToUse
-                            , { form
-                                | fieldIndexes = form.fieldIndexes |> Map.set field form.fieldIndexToUse
-                                , fieldIndexToUse = form.fieldIndexToUse |> FieldIndex.next
+                            ( form_.fieldIndexToUse
+                            , { form_
+                                | fieldIndexes = form_.fieldIndexes |> Map.set field_ form_.fieldIndexToUse
+                                , fieldIndexToUse = form_.fieldIndexToUse |> FieldIndex.next
                               }
                             )
 
                         Just fi ->
-                            ( fi, form )
+                            ( fi, form_ )
 
                 newValues =
                     case newForm.values |> FieldIndexDict.get fieldIndex of
@@ -162,12 +162,12 @@ setErrors errors form =
 
 
 validateHelper : Form error field output -> Validation error field output -> ValidationResult error field output
-validateHelper form validation =
+validateHelper form_ validation =
     case validation of
-        V_STR field cont ->
+        V_STR field_ cont ->
             let
                 mFieldIndex =
-                    form.fieldIndexes |> Map.get field
+                    form_.fieldIndexes |> Map.get field_
 
                 stringValue =
                     case mFieldIndex of
@@ -175,19 +175,19 @@ validateHelper form validation =
                             ""
 
                         Just fi ->
-                            case FieldIndexDict.get fi form.values of
+                            case FieldIndexDict.get fi form_.values of
                                 Nothing ->
                                     ""
 
                                 Just state ->
                                     state.value |> Form.FieldState.asString |> Maybe.withDefault ""
             in
-            validateHelper form <| cont stringValue
+            validateHelper form_ <| cont stringValue
 
         V_LIST fl contI ->
             let
                 mFieldIndex =
-                    form.fieldIndexes |> Map.get fl
+                    form_.fieldIndexes |> Map.get fl
 
                 uniqueIndexes =
                     case mFieldIndex of
@@ -195,14 +195,14 @@ validateHelper form validation =
                             []
 
                         Just fi ->
-                            case FieldIndexDict.get fi form.listIndexes of
+                            case FieldIndexDict.get fi form_.listIndexes of
                                 Nothing ->
                                     []
 
                                 Just li ->
                                     li |> UniqueIndexDict.keys
             in
-            validateHelper form <| contI uniqueIndexes
+            validateHelper form_ <| contI uniqueIndexes
 
         V_FAIL failState ->
             let
@@ -215,7 +215,7 @@ validateHelper form validation =
             successState |> fromSuccessState
 
         V_LAZY f ->
-            validateHelper form (f ())
+            validateHelper form_ (f ())
 
 
 type alias FailCell error =
@@ -254,16 +254,16 @@ fromSuccessState =
 
 mapFailState : (field1 -> field2) -> FailState error field1 -> FailState error field2
 mapFailState mapf failState =
-    { failState | errors = failState.errors |> Map.mapBoth (\key failCell -> ( key |> mapf, failCell )) }
+    { errors = failState.errors |> Map.mapBoth (\key failCell -> ( key |> mapf, failCell )) }
 
 
 merge : Map field (FailCell error) -> Map field (FailCell error) -> Map field (FailCell error)
 merge fields1 fields2 =
     fields1
         |> Map.foldl
-            (\field failCell m ->
+            (\field_ failCell m ->
                 m
-                    |> Map.updateWithDefault field
+                    |> Map.updateWithDefault field_
                         (\mfailCell2 ->
                             case mfailCell2 of
                                 Nothing ->
@@ -282,13 +282,13 @@ merge fields1 fields2 =
 
 
 get : (Field String -> field) -> Form error field output -> String
-get fieldF form =
-    case form.fieldIndexes |> Map.get (field fieldF) of
+get fieldF form_ =
+    case form_.fieldIndexes |> Map.get (field fieldF) of
         Nothing ->
             ""
 
         Just fieldIndex ->
-            case form.values |> FieldIndexDict.get fieldIndex of
+            case form_.values |> FieldIndexDict.get fieldIndex of
                 Nothing ->
                     ""
 
@@ -302,13 +302,13 @@ get fieldF form =
 
 
 getError : (Field x -> field) -> Form error field output -> Maybe error
-getError fieldF form =
-    case form.fieldIndexes |> Map.get (field fieldF) of
+getError fieldF form_ =
+    case form_.fieldIndexes |> Map.get (field fieldF) of
         Nothing ->
             Nothing
 
         Just fieldIndex ->
-            case form.values |> FieldIndexDict.get fieldIndex of
+            case form_.values |> FieldIndexDict.get fieldIndex of
                 Nothing ->
                     Nothing
 
@@ -327,13 +327,13 @@ atIndex uiq f fn a =
 
 
 indexes : (FieldList x -> field) -> Form error field output -> List UniqueIndex
-indexes fieldF form =
-    case form.fieldIndexes |> Map.get (listOpaque fieldF) of
+indexes fieldF form_ =
+    case form_.fieldIndexes |> Map.get (listOpaque fieldF) of
         Nothing ->
             []
 
         Just fieldIndex ->
-            case form.listIndexes |> FieldIndexDict.get fieldIndex of
+            case form_.listIndexes |> FieldIndexDict.get fieldIndex of
                 Nothing ->
                     []
 
@@ -342,15 +342,15 @@ indexes fieldF form =
 
 
 getFieldIndex : field -> Form error field output -> ( Form error field output, FieldIndex )
-getFieldIndex field form =
-    case form.fieldIndexes |> Map.get field of
+getFieldIndex field_ form_ =
+    case form_.fieldIndexes |> Map.get field_ of
         Nothing ->
-            ( { form
-                | fieldIndexes = form.fieldIndexes |> Map.set field form.fieldIndexToUse
-                , fieldIndexToUse = form.fieldIndexToUse |> FieldIndex.next
+            ( { form_
+                | fieldIndexes = form_.fieldIndexes |> Map.set field_ form_.fieldIndexToUse
+                , fieldIndexToUse = form_.fieldIndexToUse |> FieldIndex.next
               }
-            , form.fieldIndexToUse
+            , form_.fieldIndexToUse
             )
 
         Just fi ->
-            ( form, fi )
+            ( form_, fi )

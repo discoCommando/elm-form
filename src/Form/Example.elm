@@ -1,5 +1,6 @@
 module Form.Example exposing (Form, FormMsg(..), MainField(..), Model, Msg(..), Offer, OfferField1(..), Output, init, initialOfferTransaction, initialTransaction, main, offerValidation, textInput, textInput2, update, validation, view, viewOffer, viewOffer2)
 
+import Browser
 import Form exposing (Field, FieldList, FieldNested, Form)
 import Form.Transaction
 import Form.Validation exposing (..)
@@ -234,10 +235,10 @@ update msg model =
             { model | form = Form.View.update formMsg model.form }
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.beginnerProgram
-        { model = { form = init }
+    Browser.sandbox
+        { init = { form = init }
         , view = view
         , update = update
         }

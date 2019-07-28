@@ -17,7 +17,7 @@ string s =
 
 int : String -> Result () Int
 int =
-    String.toInt >> Result.mapError (\_ -> ())
+    String.toInt >> Result.fromMaybe ()
 
 
 optional : (String -> Result error output) -> (String -> Result error (Maybe output))
@@ -33,11 +33,11 @@ optional f s =
 fromString : (Field String -> field) -> (String -> Result error output) -> Validation error field output
 fromString fieldF strVal =
     V_STR
-        (Form.field fieldF)
+        (field fieldF)
         (\s ->
             case strVal s of
                 Err error ->
-                    V_FAIL <| FailState <| Map.singleton (Form.field fieldF) <| FailCell (Just error)
+                    V_FAIL <| FailState <| Map.singleton (field fieldF) <| FailCell (Just error)
 
                 Ok v ->
                     V_SUCCESS <| SuccessState v
@@ -95,7 +95,7 @@ map f validation =
             V_FAIL failState
 
         V_SUCCESS successState ->
-            V_SUCCESS { successState | output = successState.output |> f }
+            V_SUCCESS <| { output = successState.output |> f }
 
         V_LAZY f_ ->
             V_LAZY (f_ >> map f)

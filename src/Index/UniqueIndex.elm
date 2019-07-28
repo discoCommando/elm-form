@@ -17,12 +17,12 @@ next (UniqueIndex i) =
 
 toString : UniqueIndex -> String
 toString (UniqueIndex i) =
-    Basics.toString i
+    String.fromInt i
 
 
 fromString : String -> Maybe UniqueIndex
 fromString s =
-    String.toInt s |> Result.toMaybe |> Maybe.map UniqueIndex
+    String.toInt s |> Maybe.map UniqueIndex
 
 
 equals : UniqueIndex -> UniqueIndex -> Bool

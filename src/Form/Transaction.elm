@@ -1,6 +1,6 @@
 module Form.Transaction exposing (addRow, batch, empty, map, removeRow, removeRowHelper, save, saveHelper, setAtIndex, setNested, setString)
 
-import Form exposing (Form, Transaction(..))
+import Form exposing (Form, Transaction(..), field)
 import Form.FieldState
 import Form.Map as Map
 import Index.FieldIndex exposing (FieldIndex)
@@ -54,8 +54,8 @@ map mapF transaction =
         T_BATCH ls ->
             T_BATCH (List.map (map mapF) ls)
 
-        T_SETINLIST listFieldOpaque uniqueIndex transaction ->
-            T_SETINLIST (mapF listFieldOpaque) uniqueIndex (map mapF transaction)
+        T_SETINLIST listFieldOpaque uniqueIndex transaction_ ->
+            T_SETINLIST (mapF listFieldOpaque) uniqueIndex (map mapF transaction_)
 
 
 save : Transaction field -> Form error field output -> Form error field output
@@ -74,7 +74,7 @@ saveHelper transaction form =
         T_STR fieldF string ->
             let
                 ( newForm, fieldIndex ) =
-                    Form.getFieldIndex (Form.field fieldF) form
+                    Form.getFieldIndex (field fieldF) form
 
                 newValues =
                     case newForm.values |> FieldIndexDict.get fieldIndex of
@@ -112,7 +112,7 @@ saveHelper transaction form =
             in
             ( { newForm2 | listIndexes = newListIndexes, counter = newForm2.counter + 1 }, fieldIndex :: fieldIndexes )
 
-        T_SETINLIST listFieldOpaque uniqueIndex transaction ->
+        T_SETINLIST listFieldOpaque uniqueIndex transaction_ ->
             let
                 ( newForm, fieldIndex ) =
                     Form.getFieldIndex listFieldOpaque form
@@ -173,10 +173,10 @@ saveHelper transaction form =
         T_BATCH ls ->
             ls
                 |> List.foldl
-                    (\transaction ( newForm, result ) ->
+                    (\transaction_ ( newForm, result ) ->
                         let
                             ( newForm2, newResult ) =
-                                saveHelper transaction newForm
+                                saveHelper transaction_ newForm
                         in
                         ( newForm2, result ++ newResult )
                     )

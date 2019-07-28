@@ -1,5 +1,6 @@
 module Form.Example2 exposing (Form, Model, Msg(..), Tree(..), TreeField(..), init, main, update, validation, view, viewTree)
 
+import Browser
 import Form
 import Form.Validation
 import Form.View
@@ -80,10 +81,10 @@ init =
     Form.form validation
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.beginnerProgram
-        { model = init
+    Browser.sandbox
+        { init = init
         , view = view
         , update = update
         }

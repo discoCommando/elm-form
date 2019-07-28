@@ -9,18 +9,18 @@ type alias UniqueIndexDict x =
 
 
 get : UniqueIndex -> UniqueIndexDict x -> Maybe x
-get fi values =
-    values |> Dict.get (fi |> UniqueIndex.toString)
+get fi =
+    Dict.get (fi |> UniqueIndex.toString)
 
 
 map : (x -> y) -> UniqueIndexDict x -> UniqueIndexDict y
-map f values =
-    Dict.map (\_ -> f) values
+map f =
+    Dict.map (\_ -> f)
 
 
 set : UniqueIndex -> x -> UniqueIndexDict x -> UniqueIndexDict x
-set fieldIndex x values =
-    values |> Dict.insert (fieldIndex |> UniqueIndex.toString) x
+set fieldIndex x =
+    Dict.insert (fieldIndex |> UniqueIndex.toString) x
 
 
 empty : UniqueIndexDict x
