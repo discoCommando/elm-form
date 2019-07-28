@@ -1,4 +1,4 @@
-module Form.Example2 exposing (..)
+module Form.Example2 exposing (Form, Model, Msg(..), Tree(..), TreeField(..), init, main, update, validation, view, viewTree)
 
 import Form
 import Form.Validation
@@ -61,7 +61,7 @@ viewTree =
                     Just msg ->
                         button [ onClick msg ] [ text " - " ]
             )
-        , Form.View.inList Children (\uids -> Form.View.div [ style [ ( "padding-left", "20px" ) ] ] (uids |> List.map (\uid -> Form.View.inIndex uid Children viewTree)))
+        , Form.View.inList Children (\uids -> Form.View.div [ style "padding-left" "20px" ] (uids |> List.map (\uid -> Form.View.inIndex uid Children viewTree)))
         ]
 
 

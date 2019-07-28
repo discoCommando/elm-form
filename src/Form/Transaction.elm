@@ -1,4 +1,4 @@
-module Form.Transaction exposing (..)
+module Form.Transaction exposing (addRow, batch, empty, map, removeRow, removeRowHelper, save, saveHelper, setAtIndex, setNested, setString)
 
 import Form exposing (Form, Transaction(..))
 import Form.FieldState

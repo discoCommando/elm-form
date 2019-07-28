@@ -1,4 +1,4 @@
-module Form.Example exposing (..)
+module Form.Example exposing (Form, FormMsg(..), MainField(..), Model, Msg(..), Offer, OfferField1(..), Output, init, initialOfferTransaction, initialTransaction, main, offerValidation, textInput, textInput2, update, validation, view, viewOffer, viewOffer2)
 
 import Form exposing (Field, FieldList, FieldNested, Form)
 import Form.Transaction
@@ -8,6 +8,7 @@ import Html exposing (Html, button, div, input, p, span, text)
 import Html.Attributes exposing (type_, value)
 import Html.Events exposing (onClick, onInput)
 import Index.UniqueIndex exposing (UniqueIndex)
+
 
 
 -- FIELDS CAN BE EITHER STRING OR BOOL SINCE FIELDS IN HTML ARE ONLY THOSE

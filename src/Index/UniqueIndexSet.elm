@@ -1,4 +1,4 @@
-module Index.UniqueIndexSet exposing (..)
+module Index.UniqueIndexSet exposing (UniqueIndexSet, insert, member, toList)
 
 import Index.UniqueIndex as UniqueIndex exposing (UniqueIndex)
 import Set exposing (Set)

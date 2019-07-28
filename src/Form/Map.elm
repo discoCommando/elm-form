@@ -1,24 +1,23 @@
-module Form.Map
-    exposing
-        ( Map
-        , empty
-        , exists
-        , filter
-        , filterMap
-        , get
-        , length
-        , mapBoth
-        , mapKey
-        , mapValue
-        , mergeWith
-        , remove
-        , set
-        , singleton
-        , toList
-        , update
-        , updateWithDefault
-        , foldl 
-        )
+module Form.Map exposing
+    ( Map
+    , empty
+    , exists
+    , filter
+    , filterMap
+    , foldl
+    , get
+    , length
+    , mapBoth
+    , mapKey
+    , mapValue
+    , mergeWith
+    , remove
+    , set
+    , singleton
+    , toList
+    , update
+    , updateWithDefault
+    )
 
 
 type Map key value
@@ -186,14 +185,16 @@ mapBoth f map =
                         )
                 )
 
+
 foldl : (key -> value -> acc -> acc) -> acc -> Map key value -> acc
 foldl f acc m =
-    case m of 
-        M [] -> 
-            acc 
-        
-        M (state :: rest) -> 
+    case m of
+        M [] ->
+            acc
+
+        M (state :: rest) ->
             foldl f (f state.key state.value acc) (M rest)
+
 
 filterMap : (key1 -> Maybe key2) -> Map key1 value -> Map key2 value
 filterMap f map =

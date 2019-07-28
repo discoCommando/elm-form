@@ -1,4 +1,4 @@
-module Index.FieldIndexDict exposing (..)
+module Index.FieldIndexDict exposing (FieldIndexDict, empty, get, keys, map, remove, set, update)
 
 import Dict exposing (Dict)
 import Index.FieldIndex as FieldIndex exposing (FieldIndex)

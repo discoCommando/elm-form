@@ -1,4 +1,4 @@
-module Index.UniqueIndexDict exposing (..)
+module Index.UniqueIndexDict exposing (UniqueIndexDict, empty, get, keys, map, remove, set, toList, values)
 
 import Dict exposing (Dict)
 import Index.UniqueIndex as UniqueIndex exposing (UniqueIndex)

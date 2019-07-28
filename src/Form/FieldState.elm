@@ -1,4 +1,4 @@
-module Form.FieldState exposing (..)
+module Form.FieldState exposing (FieldState, FieldValue(..), asBool, asString, boolValue, newFieldState, stringValue)
 
 -- type alias Transaction error field output =
 --     { newFields : Fields error field

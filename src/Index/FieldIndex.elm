@@ -1,12 +1,11 @@
-module Index.FieldIndex
-    exposing
-        ( FieldIndex
-        , create
-        , equals
-        , fromString
-        , next
-        , toString
-        )
+module Index.FieldIndex exposing
+    ( FieldIndex
+    , create
+    , equals
+    , fromString
+    , next
+    , toString
+    )
 
 import Index.UniqueIndex as UniqueIndex
 
