@@ -1,8 +1,20 @@
 module Form.Validation exposing (andMap, andThen, failure, fromList, fromNested, fromString, int, lazy, makeList, map, mapField, optional, string, succeed)
 
-import Form exposing (..)
-import Form.Map as Map exposing (Map)
-import Index.UniqueIndex as UniqueIndex exposing (UniqueIndex)
+import Form
+    exposing
+        ( FailCell
+        , FailState
+        , Field
+        , FieldList
+        , FieldNested
+        , SuccessState
+        , Validation(..)
+        , field
+        , mapFailState
+        , merge
+        )
+import Form.Map as Map
+import Index.UniqueIndex exposing (UniqueIndex)
 
 
 string : String -> Result () String
@@ -158,7 +170,7 @@ andMap validation validationF =
                         FailState
                             (failState1.errors |> merge failState2.errors)
 
-                V_SUCCESS successState ->
+                V_SUCCESS _ ->
                     V_FAIL <|
                         failState1
 

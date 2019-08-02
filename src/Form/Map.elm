@@ -42,14 +42,13 @@ set key value map =
             M [ State key value ]
 
         M (state :: rest) ->
-            case state.key == key of
-                True ->
-                    M (State key value :: rest)
+            if state.key == key then
+                M (State key value :: rest)
 
-                False ->
-                    case set key value (M rest) of
-                        M new ->
-                            M (state :: new)
+            else
+                case set key value (M rest) of
+                    M new ->
+                        M (state :: new)
 
 
 exists : key -> Map key value -> Bool
@@ -59,12 +58,11 @@ exists key map =
             False
 
         M (state :: rest) ->
-            case state.key == key of
-                True ->
-                    True
+            if state.key == key then
+                True
 
-                False ->
-                    exists key (M rest)
+            else
+                exists key (M rest)
 
 
 get : key -> Map key value -> Maybe value
@@ -74,12 +72,11 @@ get key map =
             Nothing
 
         M (state :: rest) ->
-            case state.key == key of
-                True ->
-                    Just state.value
+            if state.key == key then
+                Just state.value
 
-                False ->
-                    get key (M rest)
+            else
+                get key (M rest)
 
 
 remove : key -> Map key value -> Map key value
@@ -89,14 +86,13 @@ remove key map =
             M []
 
         M (state :: rest) ->
-            case state.key == key of
-                True ->
-                    M rest
+            if state.key == key then
+                M rest
 
-                False ->
-                    case remove key (M rest) of
-                        M rest2 ->
-                            M (state :: rest2)
+            else
+                case remove key (M rest) of
+                    M rest2 ->
+                        M (state :: rest2)
 
 
 filter : (key -> value -> Bool) -> Map key value -> Map key value
@@ -108,12 +104,11 @@ filter f map =
         M (state :: rest) ->
             case filter f (M rest) of
                 M filtered ->
-                    case f state.key state.value of
-                        True ->
-                            M (state :: filtered)
+                    if f state.key state.value then
+                        M (state :: filtered)
 
-                        False ->
-                            M filtered
+                    else
+                        M filtered
 
 
 update : key -> (value -> value) -> Map key value -> Map key value
@@ -123,14 +118,13 @@ update key updateF map =
             M []
 
         M (state :: rest) ->
-            case state.key == key of
-                True ->
-                    M ({ state | value = state.value |> updateF } :: rest)
+            if state.key == key then
+                M ({ state | value = state.value |> updateF } :: rest)
 
-                False ->
-                    case update key updateF (M rest) of
-                        M updated ->
-                            M (state :: updated)
+            else
+                case update key updateF (M rest) of
+                    M updated ->
+                        M (state :: updated)
 
 
 updateWithDefault : key -> (Maybe value -> value) -> Map key value -> Map key value
@@ -140,14 +134,13 @@ updateWithDefault key updateF map =
             M [ { key = key, value = updateF Nothing } ]
 
         M (state :: rest) ->
-            case state.key == key of
-                True ->
-                    M ({ state | value = state.value |> Just |> updateF } :: rest)
+            if state.key == key then
+                M ({ state | value = state.value |> Just |> updateF } :: rest)
 
-                False ->
-                    case updateWithDefault key updateF (M rest) of
-                        M updated ->
-                            M (state :: updated)
+            else
+                case updateWithDefault key updateF (M rest) of
+                    M updated ->
+                        M (state :: updated)
 
 
 mapKey : (key1 -> key2) -> Map key1 value -> Map key2 value

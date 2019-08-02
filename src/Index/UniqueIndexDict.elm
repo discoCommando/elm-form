@@ -48,10 +48,5 @@ toList =
     Dict.toList
         >> List.filterMap
             (\( s, x ) ->
-                case UniqueIndex.fromString s of
-                    Nothing ->
-                        Nothing
-
-                    Just ui ->
-                        Just ( ui, x )
+                UniqueIndex.fromString s |> Maybe.map (\ui -> ( ui, x ))
             )

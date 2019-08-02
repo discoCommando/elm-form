@@ -3,7 +3,7 @@ module Form.Example exposing (Form, FormMsg(..), MainField(..), Model, Msg(..), 
 import Browser
 import Form exposing (Field, FieldList, FieldNested, Form)
 import Form.Transaction
-import Form.Validation exposing (..)
+import Form.Validation exposing (succeed, andMap, fromString , int, fromNested, fromList, string, optional)
 import Form.View
 import Html exposing (Html, button, div, input, p, span, text)
 import Html.Attributes exposing (type_, value)
