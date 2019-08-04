@@ -1,19 +1,24 @@
-module Form.Get exposing (atList, field, getError, getHelper, getString, nested)
+module Form.Get exposing (atList, field, getError, getHelper, getString, nested, indexes)
 
-import Form exposing (Field, FieldList(..), FieldNested(..), Form, Get(..))
 import Form.FieldState exposing (FieldState)
 import Form.Map as Map
 import Index.FieldIndexDict as FieldIndexDict
 import Index.UniqueIndexDict as UniqueIndexDict
 import Index.UniqueIndex exposing (UniqueIndex)
+import Form.Field as Field
+import Form.Type exposing (Form)
 
 
-field : (Field a -> field) -> Get field a
+type Get field resultType = Get (Field.Value resultType -> field)
+
+
+
+field : (Field.Value a -> field) -> Get field a
 field =
     Get
 
 
-getString : Get field String -> Form error field output -> String
+getString : Get field String -> Form error field output validation -> String
 getString =
     getHelper <|
         \mFieldState ->
@@ -30,16 +35,16 @@ getString =
                             ""
 
 
-getError : Get field a -> Form error field output -> Maybe error
+getError : Get field a -> Form error field output validation -> Maybe error
 getError =
     getHelper <|
         \mFieldState ->
             mFieldState |> Maybe.andThen .error
 
 
-getHelper : (Maybe (FieldState error) -> x) -> Get field a -> Form error field output -> x
+getHelper : (Maybe (FieldState error) -> x) -> Get field a -> Form error field output validation -> x
 getHelper f (Get fieldF) form_ =
-    case form_.fieldIndexes |> Map.get (fieldF Form.Field) of
+    case form_.fieldIndexes |> Map.get (fieldF Field.Value) of
         Nothing ->
             f Nothing
 
@@ -47,19 +52,19 @@ getHelper f (Get fieldF) form_ =
             form_.values |> FieldIndexDict.get fieldIndex |> f
 
 
-nested : (FieldNested nested -> field) -> Get nested a -> Get field a
+nested : (Field.Nested nested -> field) -> Get nested a -> Get field a
 nested fieldNested (Get nestedF) =
-    Get (\field_ -> fieldNested <| Form.WithValue <| nestedF field_)
+    Get (\field_ -> fieldNested <| Field.WithValue <| nestedF field_)
 
 
-atList : (FieldList nested -> field) -> UniqueIndex -> Get nested a -> Get field a
+atList : (Field.List nested -> field) -> UniqueIndex -> Get nested a -> Get field a
 atList fieldList uniqueIndex (Get nestedF) =
-    Get (\field_ -> fieldList <| Form.WithIndex uniqueIndex <| nestedF field_)
+    Get (\field_ -> fieldList <| Field.WithIndex uniqueIndex <| nestedF field_)
 
 
-indexes : (FieldList x -> field) -> Form error field output -> List UniqueIndex
+indexes : (Field.List x -> field) -> Form error field output validation -> List UniqueIndex
 indexes fieldF form_ =
-    case form_.fieldIndexes |> Map.get (listOpaque fieldF) of
+    case form_.fieldIndexes |> Map.get (fieldF Field.OpaqueList) of
         Nothing ->
             []
 

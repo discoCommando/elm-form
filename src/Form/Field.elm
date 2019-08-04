@@ -1,16 +1,16 @@
-module Form.Field exposing (Field(..), FieldList(..), FieldNested(..), Text(..))
+module Form.Field exposing (Value(..), List(..), Nested(..))
 
-type Text = Text (Field String)
+import Index.UniqueIndex exposing (UniqueIndex)
 
-type Field a
-    = Field
+type Value a
+    = Value
 
 
-type FieldList a
+type List a
     = OpaqueList
     | WithIndex UniqueIndex a
 
 
-type FieldNested a
+type Nested a
     = OpaqueNested
     | WithValue a

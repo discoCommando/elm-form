@@ -1,12 +1,38 @@
-module Form.Transaction exposing (addRow, batch, empty, map, removeRow, removeRowHelper, save, saveHelper, setAtIndex, setNested, setString)
+module Form.Transaction exposing
+    ( Transaction
+    , addRow
+    , batch
+    , empty
+    , map
+    , removeRow
+    , removeRowHelper
+    , save
+    , saveHelper
+    , setAtIndex
+    , setNested
+    , setString
+    )
 
-import Form exposing (Form, Transaction(..), field)
+import Form.Field as Field
 import Form.FieldState
 import Form.Map as Map
-import Index.FieldIndex exposing (FieldIndex)
+import Form.Validation exposing (Validation)
+import Index.FieldIndex as FieldIndex exposing (FieldIndex)
 import Index.FieldIndexDict as FieldIndexDict
 import Index.UniqueIndex exposing (UniqueIndex)
 import Index.UniqueIndexDict as UniqueIndexDict
+
+
+type Transaction field
+    = T_STR (Field.Value String -> field) String
+    | T_ADDROW field (UniqueIndex -> Transaction field)
+    | T_SETINLIST field UniqueIndex (Transaction field)
+    | T_REMOVEROW field UniqueIndex
+    | T_BATCH (List (Transaction field))
+
+
+type alias Form error field output =
+    Form.Validation.Form error field output
 
 
 batch : List (Transaction field) -> Transaction field
@@ -14,29 +40,29 @@ batch =
     T_BATCH
 
 
-setString : (Form.Field String -> field) -> String -> Transaction field
+setString : (Field.Value String -> field) -> String -> Transaction field
 setString fieldF =
     T_STR fieldF
 
 
-addRow : (Form.FieldList x -> field) -> Transaction x -> Transaction field
+addRow : (Field.List x -> field) -> Transaction x -> Transaction field
 addRow fieldListF transaction =
-    T_ADDROW (Form.listOpaque fieldListF) (\uIdx -> transaction |> map (\x -> Form.listField fieldListF uIdx x))
+    T_ADDROW (fieldListF Field.OpaqueList) (\uIdx -> transaction |> map (\x -> fieldListF <| Field.WithIndex uIdx x))
 
 
-removeRow : (Form.FieldList x -> field) -> UniqueIndex -> Transaction field
+removeRow : (Field.List x -> field) -> UniqueIndex -> Transaction field
 removeRow fieldListF =
-    T_REMOVEROW (Form.listOpaque fieldListF)
+    T_REMOVEROW (fieldListF Field.OpaqueList)
 
 
-setAtIndex : (Form.FieldList x -> field) -> UniqueIndex -> Transaction x -> Transaction field
+setAtIndex : (Field.List x -> field) -> UniqueIndex -> Transaction x -> Transaction field
 setAtIndex fieldListF uniqueIndex transaction =
-    T_SETINLIST (Form.listOpaque fieldListF) uniqueIndex (transaction |> map (\x -> Form.listField fieldListF uniqueIndex x))
+    T_SETINLIST (fieldListF Field.OpaqueList) uniqueIndex (transaction |> map (\x -> fieldListF <| Field.WithIndex uniqueIndex x))
 
 
-setNested : (Form.FieldNested x -> field) -> Transaction x -> Transaction field
+setNested : (Field.Nested x -> field) -> Transaction x -> Transaction field
 setNested fieldNF =
-    map (\x -> Form.fieldNestedNotOpaque fieldNF x)
+    map (\x -> fieldNF <| Field.WithValue x)
 
 
 map : (x -> field) -> Transaction x -> Transaction field
@@ -60,7 +86,7 @@ map mapF transaction =
 
 save : Transaction field -> Form error field output -> Form error field output
 save transaction form =
-    form |> saveHelper transaction |> Tuple.first |> Form.validate
+    form |> saveHelper transaction |> Tuple.first |> Form.Validation.validate_
 
 
 empty : Transaction field
@@ -74,7 +100,7 @@ saveHelper transaction form =
         T_STR fieldF string ->
             let
                 ( newForm, fieldIndex ) =
-                    Form.getFieldIndex (field fieldF) form
+                    getFieldIndex (fieldF Field.Value) form
 
                 newValues =
                     case newForm.values |> FieldIndexDict.get fieldIndex of
@@ -89,7 +115,7 @@ saveHelper transaction form =
         T_ADDROW field transactionF ->
             let
                 ( newForm, fieldIndex ) =
-                    Form.getFieldIndex field form
+                    getFieldIndex field form
 
                 uniqueIndexToSave =
                     newForm.uniqueIndexToUse
@@ -115,7 +141,7 @@ saveHelper transaction form =
         T_SETINLIST listFieldOpaque uniqueIndex transaction_ ->
             let
                 ( newForm, fieldIndex ) =
-                    Form.getFieldIndex listFieldOpaque form
+                    getFieldIndex listFieldOpaque form
             in
             case newForm.listIndexes |> FieldIndexDict.get fieldIndex of
                 Nothing ->
@@ -203,3 +229,18 @@ removeRowHelper states form =
                             rest ++ (m |> UniqueIndexDict.values |> List.map (.fieldIndexSet >> FieldIndexDict.keys) |> List.concat)
             in
             removeRowHelper newRest { form | values = newValues, listIndexes = form.listIndexes |> FieldIndexDict.remove fieldIndex }
+
+
+getFieldIndex : field -> Form error field output -> ( Form error field output, FieldIndex )
+getFieldIndex field_ form_ =
+    case form_.fieldIndexes |> Map.get field_ of
+        Nothing ->
+            ( { form_
+                | fieldIndexes = form_.fieldIndexes |> Map.set field_ form_.fieldIndexToUse
+                , fieldIndexToUse = form_.fieldIndexToUse |> FieldIndex.next
+              }
+            , form_.fieldIndexToUse
+            )
+
+        Just fi ->
+            ( form_, fi )

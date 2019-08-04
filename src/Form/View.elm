@@ -1,36 +1,37 @@
 module Form.View exposing (FormMsg(..), addRow, div, inForm, inIndex, inList, mapMsg, nested, node, removeLastRow, removeRow, stringInput, update)
 
 import Form exposing (View(..))
-import Form.Transaction
+import Form.Transaction exposing (Transaction)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Index.UniqueIndex exposing (UniqueIndex)
+import Form.Field as Field
 
 
-nested : (Form.FieldNested field1 -> field2) -> View error field1 (FormMsg field1) -> View error field2 (FormMsg field2)
+nested : (Field.Nested field1 -> field2) -> View error field1 (FormMsg field1) -> View error field2 (FormMsg field2)
 nested fieldF view =
     case view of
         VI_STRING field f ->
-            VI_STRING (Form.fieldNestedNotOpaque fieldF << field) (\s me -> f s me |> Html.map (mapMsg <| Form.fieldNestedNotOpaque fieldF))
+            VI_STRING (fieldF << Field.WithValue << field) (\s me -> f s me |> Html.map (mapMsg <| (fieldF << Field.WithValue)))
 
         VI_VIEW nodeName attrs views ->
-            VI_VIEW nodeName (attrs |> List.map (Html.Attributes.map (mapMsg <| Form.fieldNestedNotOpaque fieldF))) (views |> List.map (nested fieldF))
+            VI_VIEW nodeName (attrs |> List.map (Html.Attributes.map (mapMsg <| (fieldF << Field.WithValue)))) (views |> List.map (nested fieldF))
 
         VI_HTML html ->
-            VI_HTML (html |> Html.map (mapMsg <| Form.fieldNestedNotOpaque fieldF))
+            VI_HTML (html |> Html.map (mapMsg <| (fieldF << Field.WithValue)))
 
         VI_REMOVELASTROW field f ->
-            VI_REMOVELASTROW (Form.fieldNestedNotOpaque fieldF field) (\uiq -> f uiq |> Html.map (mapMsg <| Form.fieldNestedNotOpaque fieldF))
+            VI_REMOVELASTROW (fieldF <| Field.WithValue field) (\uiq -> f uiq |> Html.map (mapMsg <| (fieldF << Field.WithValue)))
 
         VI_INLIST field f ->
-            VI_INLIST (Form.fieldNestedNotOpaque fieldF field) (\uiqs -> f uiqs |> nested fieldF)
+            VI_INLIST (fieldF <| Field.WithValue field) (\uiqs -> f uiqs |> nested fieldF)
 
         VI_LAZY f ->
             VI_LAZY (f >> nested fieldF)
 
 
-inIndex : UniqueIndex -> (Form.FieldList field1 -> field2) -> View error field1 (FormMsg field1) -> View error field2 (FormMsg field2)
+inIndex : UniqueIndex -> (Field.List field1 -> field2) -> View error field1 (FormMsg field1) -> View error field2 (FormMsg field2)
 inIndex uniqueIndex fieldF view =
     case view of
         VI_STRING field f ->
@@ -75,7 +76,7 @@ inForm form view =
 
 
 type FormMsg field
-    = FormMsg (Form.Transaction field)
+    = FormMsg (Transaction field)
 
 
 mapMsg : (field1 -> field2) -> FormMsg field1 -> FormMsg field2
@@ -83,7 +84,7 @@ mapMsg f (FormMsg t) =
     FormMsg (Form.Transaction.map f t)
 
 
-stringInput : (Form.Field String -> field) -> ((String -> FormMsg field) -> String -> Maybe error -> Html msg) -> View error field msg
+stringInput : (Field.Value String -> field) -> ((String -> FormMsg field) -> String -> Maybe error -> Html msg) -> View error field msg
 stringInput field f =
     VI_STRING field (f (Form.Transaction.setString field >> FormMsg))
 
@@ -98,24 +99,24 @@ div =
     node "div"
 
 
-addRow : (Form.FieldList field2 -> field1) -> (FormMsg field1 -> Html msg) -> View error field1 msg
+addRow : (Field.List field2 -> field1) -> (FormMsg field1 -> Html msg) -> View error field1 msg
 addRow fieldListF viewF =
     VI_HTML (viewF (FormMsg (Form.Transaction.addRow fieldListF Form.Transaction.empty)))
 
 
-removeRow : (Form.FieldList field2 -> field1) -> UniqueIndex -> (FormMsg field1 -> Html msg) -> View error field1 msg
+removeRow : (Field.List field2 -> field1) -> UniqueIndex -> (FormMsg field1 -> Html msg) -> View error field1 msg
 removeRow fieldListF uniqueIndex viewF =
     VI_HTML (viewF (FormMsg (Form.Transaction.removeRow fieldListF uniqueIndex)))
 
 
-removeLastRow : (Form.FieldList field2 -> field1) -> (Maybe (FormMsg field1) -> Html msg) -> View error field1 msg
+removeLastRow : (Field.List field2 -> field1) -> (Maybe (FormMsg field1) -> Html msg) -> View error field1 msg
 removeLastRow fieldListF f =
-    VI_REMOVELASTROW (Form.listOpaque fieldListF) (\muid -> f (muid |> Maybe.map (\uid -> FormMsg (Form.Transaction.removeRow fieldListF uid))))
+    VI_REMOVELASTROW (fieldListF Field.OpaqueList) (\muid -> f (muid |> Maybe.map (\uid -> FormMsg (Form.Transaction.removeRow fieldListF uid))))
 
 
-inList : (Form.FieldList field2 -> field1) -> (List UniqueIndex -> View error field1 msg) -> View error field1 msg
+inList : (Field.List field2 -> field1) -> (List UniqueIndex -> View error field1 msg) -> View error field1 msg
 inList fieldListF f =
-    VI_INLIST (Form.listOpaque fieldListF) f
+    VI_INLIST (fieldListF Field.OpaqueList) f
 
 
 update : FormMsg field -> Form.Form error field output -> Form.Form error field output

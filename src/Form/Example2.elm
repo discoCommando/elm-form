@@ -10,8 +10,8 @@ import Html.Events exposing (onClick, onInput)
 
 
 type TreeField
-    = Value (Form.Field String)
-    | Children (Form.FieldList TreeField)
+    = Value (Form.Value String)
+    | Children (Form.List TreeField)
 
 
 type Tree

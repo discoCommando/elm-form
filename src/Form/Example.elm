@@ -1,7 +1,7 @@
-module Form.Example exposing (Form, FormMsg(..), MainField(..), Model, Msg(..), Offer, OfferField1(..), Output, init, initialOfferTransaction, initialTransaction, main, offerValidation, textInput, textInput2, update, validation, view, viewOffer, viewOffer2)
+module Form.Example exposing (..)
 
 import Browser
-import Form exposing (Field, FieldList, FieldNested, Form)
+import Form exposing (Form)
 import Form.Transaction
 import Form.Validation exposing (succeed, andMap, fromString , int, fromNested, fromList, string, optional)
 import Form.View
@@ -9,6 +9,7 @@ import Html exposing (Html, button, div, input, p, span, text)
 import Html.Attributes exposing (type_, value)
 import Html.Events exposing (onClick, onInput)
 import Index.UniqueIndex exposing (UniqueIndex)
+import Form.Field as Field
 
 
 
@@ -17,10 +18,10 @@ import Index.UniqueIndex exposing (UniqueIndex)
 
 
 type Msg
-    = SetString (Field String -> MainField) String
-    | SetInList UniqueIndex (FieldList OfferField1 -> MainField) (Field String -> OfferField1) String
-    | AddRow (FieldList OfferField1 -> MainField)
-    | RemoveRow UniqueIndex (FieldList OfferField1 -> MainField)
+    = SetString (Field.Value String -> MainField) String
+    | SetInList UniqueIndex (Field.List OfferField1 -> MainField) (Field.Value String -> OfferField1) String
+    | AddRow (Field.List OfferField1 -> MainField)
+    | RemoveRow UniqueIndex (Field.List OfferField1 -> MainField)
     | MainFormMsg (Form.View.FormMsg MainField)
 
 
@@ -34,23 +35,21 @@ type alias Model =
 
 
 type MainField
-    = Field1 (Field String) -- SIMPLE STRING FIELD
-    | OfferField (FieldNested OfferField1) -- NESTED FIELD
-      -- | Field3 (FieldList (Types.Field String)) -- SIMPLE STRING LIST FIELD
-    | NestedOffers (FieldList OfferField1) -- NESTED LIST FIELD
+    = Field1 (Field.Value String) -- SIMPLE STRING FIELD
+    | OfferField (Field.Nested OfferField1) -- NESTED FIELD
+      -- | Field3 (List (Types.Value String)) -- SIMPLE STRING LIST FIELD
+    | NestedOffers (Field.List OfferField1) -- NESTED LIST FIELD
 
-
-
--- OfferField : FieldNested OfferField1 -> MainField
--- Name : Field String -> OfferField1
+-- OfferField : Nested OfferField1 -> MainField
+-- Name : Value String -> OfferField1
 -- form |> at (Field1)
 -- form |> at (OfferField <| nested Name)
 -- SETTING UP NESTED FIELDS
 
 
 type OfferField1
-    = Name (Field String)
-    | Price (Field String)
+    = Name (Field.Value String)
+    | Price (Field.Value String)
 
 
 
@@ -149,7 +148,7 @@ init =
            )
 
 
-textInput : (Field String -> MainField) -> Form -> List (Html.Attribute Msg) -> List (Html Msg) -> Html Msg
+textInput : (Value String -> MainField) -> Form -> List (Html.Attribute Msg) -> List (Html Msg) -> Html Msg
 textInput function form attributeHtmlList msgHtmlList =
     input ([ onInput (\s -> SetString function s), value (form |> Form.get function), type_ "text" ] ++ attributeHtmlList) msgHtmlList
 
@@ -192,7 +191,7 @@ viewOffer2 =
         ]
 
 
-textInput2 : (Field String -> field) -> Form.View () field (Form.View.FormMsg field)
+textInput2 : (Value String -> field) -> Form.View () field (Form.View.FormMsg field)
 textInput2 fieldF =
     Form.View.stringInput fieldF
         (\onInputMsg str error ->
