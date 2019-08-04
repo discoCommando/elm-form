@@ -1,21 +1,34 @@
 module Form.Validation exposing (andMap, andThen, failure, fromList, fromNested, fromString, int, lazy, makeList, map, mapField, optional, string, succeed)
 
-import Form
-    exposing
-        ( FailCell
-        , FailState
-        , Field
-        , FieldList
-        , FieldNested
-        , SuccessState
-        , Validation(..)
-        , field
-        , mapFailState
-        , merge
-        )
 import Form.Map as Map
 import Index.UniqueIndex exposing (UniqueIndex)
+import Form.Get as Get 
 
+
+type Validation error field output 
+    = V_ACTION (ValidationAction error field output)
+    | V_RESULT (ValidationResult error field output)
+    
+type ValidationAction error field output 
+    = VA_STR field (String -> Validation error field output)
+    | VA_LIST field (List UniqueIndex -> Validation error field output)
+    | VA_LAZY (() -> Validation error field output)
+
+
+type alias FailCell error =
+    { error : Maybe error }
+
+
+type alias FailState error field =
+    { errors : Map field (FailCell error) }
+
+
+type alias SuccessState output =
+    { output : output }
+
+type ValidationResult error field output = 
+    VR_FAIL (FailState error field)
+    | VR_SUCCESS (SuccessState output)
 
 string : String -> Result () String
 string s =
@@ -44,44 +57,16 @@ optional f s =
 
 fromString : (Field String -> field) -> (String -> Result error output) -> Validation error field output
 fromString fieldF strVal =
-    V_STR
+    V_ACTION <| VA_STR
         (field fieldF)
         (\s ->
             case strVal s of
                 Err error ->
-                    V_FAIL <| FailState <| Map.singleton (field fieldF) <| FailCell (Just error)
+                    failure fieldF error
 
                 Ok v ->
-                    V_SUCCESS <| SuccessState v
+                    succeed v
         )
-
-
-mapField : (field1 -> field2) -> Validation error field1 output -> Validation error field2 output
-mapField mapF validation =
-    case validation of
-        -- PURE output ->
-        --     PURE output
-        -- ERROR errors ->
-        --     ERROR (errors |> List.map (\(field, error) -> (mapF field, error)))
-        V_STR f1 cont ->
-            V_STR (f1 |> mapF) (\s -> cont s |> mapField mapF)
-
-        -- V_LIST f1i cont ->
-        --     V_LIST (\i f -> f1i i f |> mapF) (\ls -> cont ls |> mapField mapF)
-        V_LIST fl fi ->
-            V_LIST (fl |> mapF) (\uidxs -> fi uidxs |> mapField mapF)
-
-        -- INPROGRESS errors rest ->
-        --     INPROGRESS (errors |> List.map (Tuple.mapFirst mapF)) (rest |> mapField mapF)
-        V_FAIL failState ->
-            V_FAIL <| mapFailState mapF failState
-
-        V_SUCCESS successState ->
-            V_SUCCESS successState
-
-        V_LAZY f ->
-            V_LAZY (f >> mapField mapF)
-
 
 fromNested : (FieldNested x -> field) -> Validation error x output -> Validation error field output
 fromNested fieldNF validation =
@@ -90,47 +75,89 @@ fromNested fieldNF validation =
 
 fromList : (FieldList x -> field) -> Validation error x output -> Validation error field (List output)
 fromList fieldListF validation =
-    V_LIST (Form.listOpaque fieldListF)
+    V_ACTION <| V_LIST (Form.listOpaque fieldListF)
         (makeList fieldListF validation)
 
+
+mapField : (field1 -> field2) -> Validation error field1 output -> Validation error field2 output
+mapField mapF validation =
+    case validation of
+        V_ACTION va ->
+            V_ACTION <| case va of  
+                VA_STR f1 cont ->
+                    VA_STR (f1 |> mapF) (\s -> cont s |> mapField mapF)
+
+                VA_LIST fl fi ->
+                    VA_LIST (fl |> mapF) (\uidxs -> fi uidxs |> mapField mapF)
+        
+                VA_LAZY f ->
+                    VA_LAZY (f >> mapField mapF)
+
+        V_RESULT vr -> 
+            V_RESULT <| case vr of 
+                VR_FAIL failState ->
+                    VR_FAIL <| mapFailState mapF failState
+
+                VR_SUCCESS successState ->
+                    VR_SUCCESS successState
+
+
+mapVAVs : (Validation error1 field1 o1 -> Validation error2 field2 o2) -> ValidationAction error1 field1 o1 -> ValidationAction error2 field2 o2
+mapVAVs f validationAction = 
+    case validationAction of 
+        VA_STR f1 cont -> 
+            VA_STR f1 (cont >> f)
+
+        VA_LIST fl fi -> 
+            VA_LIST fl (fi >> f)
+
+        VA_LAZY f_ -> 
+            VA_LAZY (f_ >> f)
+
+mapVA : (o1 -> o2) -> ValidationAction error field o1 -> ValidationAction error field o2
+mapVA f = 
+    mapVAVs (map f)
+
+mapVR : (o1 -> o2) -> ValidationResult error field o1 -> ValidationResult error field o2
+mapVR f validationResult = 
+    case validationResult of 
+        VR_SUCCESS { output } -> 
+            VR_SUCCESS { output = f output }
+
+        VR_FAIL failState -> 
+            VR_FAIL failState
 
 map : (o1 -> o2) -> Validation error field o1 -> Validation error field o2
 map f validation =
     case validation of
-        V_STR f1 cont ->
-            V_STR f1 (\s -> cont s |> map f)
+        V_ACTION va -> 
+            V_ACTION (mapVA f va)
 
-        V_LIST fl fi ->
-            V_LIST fl (\uidxs -> fi uidxs |> map f)
+        V_RESULT vr -> 
+            V_RESULT (mapVR f vr)
 
-        V_FAIL failState ->
-            V_FAIL failState
+andThenVA : (output1 -> Validation error field output2) -> ValidationAction error field output1 -> ValidationAction error field output2
+andThenVA f = 
+    mapVAVs (andThen f)
 
-        V_SUCCESS successState ->
-            V_SUCCESS <| { output = successState.output |> f }
+andThenVR : (output1 -> Validation error field output2) -> ValidationAction error field output1 -> ValidationAction error field output2
+andThenVR f validationAction = 
+    case validationAction  of 
+        VR_SUCCESS { output } -> 
+            f output 
 
-        V_LAZY f_ ->
-            V_LAZY (f_ >> map f)
-
+        VR_FAIL failState -> 
+            VR_FAIL failState 
 
 andThen : (output1 -> Validation error field output2) -> Validation error field output1 -> Validation error field output2
 andThen validationCont validation =
     case validation of
-        V_STR f1 cont ->
-            V_STR f1 (\s -> cont s |> andThen validationCont)
+        V_ACTION va -> 
+            V_ACTION (andThenVA validationCont va)
 
-        V_LIST fl fi ->
-            V_LIST fl (\uidxs -> fi uidxs |> andThen validationCont)
-
-        V_FAIL failState ->
-            V_FAIL failState
-
-        V_SUCCESS successState ->
-            validationCont successState.output
-
-        V_LAZY f ->
-            V_LAZY (f >> andThen validationCont)
-
+        V_RESULT vr -> 
+            V_RESULT (andThenVR validationCont vr)
+ 
 
 makeList : (FieldList x -> field) -> Validation error x output -> List UniqueIndex -> Validation error field (List output)
 makeList fieldListF validation uidxs =
@@ -147,70 +174,157 @@ makeList fieldListF validation uidxs =
                 |> andMap mappedValidation
                 |> andMap (makeList fieldListF validation rest)
 
+andMapVA : ValidationAction error field output1 -> Validation error field (output1 -> output2) -> ValidationAction error field output2
+andMapVA validationAction validationF = 
+    mapVAVs (\v -> andMap v validationF) validationAction
+
+andMapVR : ValidationResult error field output1 -> Validation error field (output1 -> output2) -> Validation error field output2
+andMapVR validationResult validationF = 
+    case validationF of 
+        V_ACTION va -> 
+            V_ACTION <| mapVAVs (andMap validationResult) va
+
+        V_RESULT vrf -> 
+            V_RESULT <| case vrf of
+                VR_FAIL failState2 -> 
+                    case validationResult of 
+                        VR_FAIL failState1 -> 
+                            VR_FAIL { errors = failState1.errors |> merge failState2.errors }
+
+                        VR_SUCCESS _ -> 
+                            VR_FAIL failState2 
+
+                VR_SUCCESS successState2 -> 
+                    case validationResult of 
+                        VR_FAIL failState1 -> 
+                            VR_FAIL failState1 
+
+                        VR_SUCCESS successState1 -> 
+                            VR_SUCCESS { output = successState2.output successState1.output }
+
+            
+    
 
 andMap : Validation error field output1 -> Validation error field (output1 -> output2) -> Validation error field output2
 andMap validation validationF =
     case validation of
-        V_STR f1 cont ->
-            V_STR f1 (\s -> andMap (cont s) validationF)
+        V_ACTION va -> 
+            V_ACTION <| andMapVA va validationF 
 
-        V_LIST fl fi ->
-            V_LIST fl (\uidxs -> andMap (fi uidxs) validationF)
-
-        V_FAIL failState1 ->
-            case validationF of
-                V_STR f1 cont ->
-                    V_STR f1 (\s -> andMap (V_FAIL failState1) (cont s))
-
-                V_LIST fl fi ->
-                    V_LIST fl (\uidxs -> fi uidxs |> andMap (V_FAIL failState1))
-
-                V_FAIL failState2 ->
-                    V_FAIL <|
-                        FailState
-                            (failState1.errors |> merge failState2.errors)
-
-                V_SUCCESS _ ->
-                    V_FAIL <|
-                        failState1
-
-                V_LAZY f ->
-                    V_LAZY (f >> andMap (V_FAIL failState1))
-
-        V_SUCCESS successState1 ->
-            case validationF of
-                V_STR f1 cont ->
-                    V_STR f1 (\s -> andMap (V_SUCCESS successState1) (cont s))
-
-                V_LIST fl fi ->
-                    V_LIST fl (\uidxs -> fi uidxs |> andMap (V_SUCCESS successState1))
-
-                V_FAIL failState ->
-                    V_FAIL <|
-                        failState
-
-                V_SUCCESS successState2 ->
-                    V_SUCCESS <|
-                        SuccessState
-                            (successState2.output successState1.output)
-
-                V_LAZY f ->
-                    V_LAZY (f >> andMap (V_SUCCESS successState1))
-
-        V_LAZY f ->
-            V_LAZY (f >> (\v_ -> andMap v_ validationF))
-
+        V_RESULT vr -> 
+            andMapVR vr validationF 
 
 succeed : output -> Validation error field output
 succeed output =
-    V_SUCCESS <| SuccessState output
+    V_RESULT <| VR_SUCCESS <| SuccessState output
 
 
 failure : (Field a -> field) -> error -> Validation error field output
 failure fieldF error =
-    V_FAIL <| FailState <| Map.singleton (fieldF Form.Field) (FailCell (Just error))
+    V_RESULT <| VR_FAIL <| FailState <| Map.singleton (fieldF Form.Field) (FailCell (Just error))
 
 
 lazy : (() -> Validation error field output) -> Validation error field output
 lazy =
-    V_LAZY
+    V_ACTION << VR_LAZY
+
+
+resolve : Validation error field output -> Form error field output -> ValidationResult error field output 
+resolve validation form = 
+    case validation of
+        V_ACTION va ->
+            case va of 
+                VA_STR field_ cont ->
+                    let
+                        stringValue = Get.getString (Get.field field_) form
+                    in
+                    resolve form <| cont stringValue
+
+                VA_LIST fl contI ->
+                    let
+                        uniqueIndexes = form |> Get.indexes (\_ -> fl) -- we are sure its the correct index cause of fromList function
+                    in
+                    resolve form <| contI uniqueIndexes
+
+                VA_LAZY f ->
+                    resolve form (f ())
+
+        V_RESULT vr -> 
+            vr
+
+validate_ : Form error field output -> Form error field output 
+validate_ form = 
+    let
+        validationResult =
+            validateHelper form form.validation
+
+        clearedForm = form |> clearErrors 
+    in
+    case validationResult of
+        VR_SUCCESS { output } ->
+            { clearedForm | output = Just output }
+
+        VR_FAIL { errors } ->
+            { clearedForm | output = Nothing } |> setErrors (errors |> Map.toList)
+
+
+clearErrors : Form error field output -> Form error field output
+clearErrors form =
+    { form | values = form.values |> FieldIndexDict.map (\state -> { state | error = Nothing }) }
+
+
+setErrors : List ( field, FailCell error ) -> Form error field output -> Form error field output
+setErrors errors form =
+    case errors of
+        [] ->
+            form
+
+        ( field_, failCell ) :: rest ->
+            let
+                ( fieldIndex, newForm ) =
+                    case form.fieldIndexes |> Map.get field_ of
+                        Nothing ->
+                            ( form.fieldIndexToUse
+                            , { form
+                                | fieldIndexes = form.fieldIndexes |> Map.set field_ form.fieldIndexToUse
+                                , fieldIndexToUse = form.fieldIndexToUse |> FieldIndex.next
+                              }
+                            )
+
+                        Just fi ->
+                            ( fi, form )
+
+                newValues =
+                    case newForm.values |> FieldIndexDict.get fieldIndex of
+                        Nothing ->
+                            newForm.values |> FieldIndexDict.set fieldIndex { value = Form.FieldState.FVEmpty, error = failCell.error }
+
+                        Just state ->
+                            newForm.values |> FieldIndexDict.set fieldIndex { state | error = failCell.error }
+            in
+            setErrors rest { newForm | values = newValues }
+
+
+
+merge : Map field (FailCell error) -> Map field (FailCell error) -> Map field (FailCell error)
+merge fields1 fields2 =
+    fields1
+        |> Map.foldl
+            (\field_ failCell m ->
+                m
+                    |> Map.updateWithDefault field_
+                        (\mfailCell2 ->
+                            case mfailCell2 of
+                                Nothing ->
+                                    failCell
+
+                                Just failCell2 ->
+                                    case failCell.error of
+                                        Nothing ->
+                                            failCell2
+
+                                        _ ->
+                                            failCell
+                        )
+            )
+            fields2

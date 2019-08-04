@@ -9,20 +9,17 @@ module Form exposing
     , Transaction(..)
     , UniqueIndexDictState
     , Validation(..)
+    , ValidationAction(..)
     , ValidationResult(..)
     , ValidationResultCell
     , View(..)
-    , at
-    , atIndex
     , clearErrors
     , field
     , fieldNested
     , fieldNestedNotOpaque
     , form
     , fromFailState
-    , fromSuccessState
-    , get
-    , getError
+    , fromSuccess
     , getFieldIndex
     , getOutput
     , indexes
@@ -46,15 +43,7 @@ import Index.FieldIndex as FieldIndex exposing (..)
 import Index.FieldIndexDict as FieldIndexDict exposing (..)
 import Index.UniqueIndex as UniqueIndex exposing (..)
 import Index.UniqueIndexDict as UniqueIndexDict exposing (..)
-
-
-type Validation error field output
-    = V_STR field (String -> Validation error field output)
-    | V_LIST field (List UniqueIndex -> Validation error field output)
-    | V_FAIL (FailState error field)
-    | V_SUCCESS (SuccessState output)
-    | V_LAZY (() -> Validation error field output)
-
+import Form.Validation exposing (validate_, Validation)
 
 type Transaction field
     = T_STR (Field String -> field) String
@@ -62,7 +51,6 @@ type Transaction field
     | T_SETINLIST field UniqueIndex (Transaction field)
     | T_REMOVEROW field UniqueIndex
     | T_BATCH (List (Transaction field))
-
 
 type View error field msg
     = VI_STRING (Field String -> field) (String -> Maybe error -> Html msg)
@@ -73,20 +61,6 @@ type View error field msg
     | VI_LAZY (() -> View error field msg)
 
 type Get field resultType = Get (Field resultType -> field)
-
-
-type Field a
-    = Field
-
-
-type FieldList a
-    = OpaqueList
-    | WithIndex UniqueIndex a
-
-
-type FieldNested a
-    = OpaqueNested
-    | WithValue a
 
 
 listOpaque : (FieldList a -> field) -> field
@@ -150,187 +124,12 @@ form validation =
 
 validate : Form error field output -> Form error field output
 validate form_ =
-    let
-        validationResult =
-            validateHelper form_ form_.validation |> Debug.log "asd"
-    in
-    case validationResult of
-        Succeeded successState ->
-            { form_ | output = Just successState.output } |> clearErrors
-
-        Failed failState ->
-            { form_ | output = Nothing } |> clearErrors |> setErrors (failState.errors |> Map.toList)
-
-
-clearErrors : Form error field output -> Form error field output
-clearErrors form_ =
-    { form_ | values = form_.values |> FieldIndexDict.map (\state -> { state | error = Nothing }) }
-
-
-setErrors : List ( field, FailCell error ) -> Form error field output -> Form error field output
-setErrors errors form_ =
-    case errors of
-        [] ->
-            form_
-
-        ( field_, failCell ) :: rest ->
-            let
-                ( fieldIndex, newForm ) =
-                    case form_.fieldIndexes |> Map.get field_ of
-                        Nothing ->
-                            ( form_.fieldIndexToUse
-                            , { form_
-                                | fieldIndexes = form_.fieldIndexes |> Map.set field_ form_.fieldIndexToUse
-                                , fieldIndexToUse = form_.fieldIndexToUse |> FieldIndex.next
-                              }
-                            )
-
-                        Just fi ->
-                            ( fi, form_ )
-
-                newValues =
-                    case newForm.values |> FieldIndexDict.get fieldIndex of
-                        Nothing ->
-                            newForm.values |> FieldIndexDict.set fieldIndex { value = Form.FieldState.FVEmpty, error = failCell.error }
-
-                        Just state ->
-                            newForm.values |> FieldIndexDict.set fieldIndex { state | error = failCell.error }
-            in
-            setErrors rest { newForm | values = newValues }
-
-
-validateHelper : Form error field output -> Validation error field output -> ValidationResult error field output
-validateHelper form_ validation =
-    case validation of
-        V_STR field_ cont ->
-            let
-                mFieldIndex =
-                    form_.fieldIndexes |> Map.get field_
-
-                stringValue =
-                    case mFieldIndex of
-                        Nothing ->
-                            ""
-
-                        Just fi ->
-                            case FieldIndexDict.get fi form_.values of
-                                Nothing ->
-                                    ""
-
-                                Just state ->
-                                    state.value |> Form.FieldState.asString |> Maybe.withDefault ""
-            in
-            validateHelper form_ <| cont stringValue
-
-        V_LIST fl contI ->
-            let
-                mFieldIndex =
-                    form_.fieldIndexes |> Map.get fl
-
-                uniqueIndexes =
-                    case mFieldIndex of
-                        Nothing ->
-                            []
-
-                        Just fi ->
-                            case FieldIndexDict.get fi form_.listIndexes of
-                                Nothing ->
-                                    []
-
-                                Just li ->
-                                    li |> UniqueIndexDict.keys
-            in
-            validateHelper form_ <| contI uniqueIndexes
-
-        V_FAIL failState ->
-            let
-                _ =
-                    Debug.log "fs" failState
-            in
-            failState |> fromFailState
-
-        V_SUCCESS successState ->
-            successState |> fromSuccessState
-
-        V_LAZY f ->
-            validateHelper form_ (f ())
-
-
-type alias FailCell error =
-    { error : Maybe error
-    }
-
-
-type alias FailState error field =
-    { errors : Map field (FailCell error) }
-
-
-type alias SuccessState output =
-    { output : output
-    }
-
-
-type ValidationResult error field output
-    = Failed (FailState error field)
-    | Succeeded (SuccessState output)
-
-
-type alias ValidationResultCell error =
-    { error : Maybe error
-    }
-
-
-fromFailState : FailState error field -> ValidationResult error field output
-fromFailState =
-    Failed
-
-
-fromSuccessState : SuccessState output -> ValidationResult error field output
-fromSuccessState =
-    Succeeded
-
+    
 
 mapFailState : (field1 -> field2) -> FailState error field1 -> FailState error field2
 mapFailState mapf failState =
     { errors = failState.errors |> Map.mapBoth (\key failCell -> ( key |> mapf, failCell )) }
 
-
-merge : Map field (FailCell error) -> Map field (FailCell error) -> Map field (FailCell error)
-merge fields1 fields2 =
-    fields1
-        |> Map.foldl
-            (\field_ failCell m ->
-                m
-                    |> Map.updateWithDefault field_
-                        (\mfailCell2 ->
-                            case mfailCell2 of
-                                Nothing ->
-                                    failCell
-
-                                Just failCell2 ->
-                                    case failCell.error of
-                                        Nothing ->
-                                            failCell2
-
-                                        _ ->
-                                            failCell
-                        )
-            )
-            fields2
-
-indexes : (FieldList x -> field) -> Form error field output -> List UniqueIndex
-indexes fieldF form_ =
-    case form_.fieldIndexes |> Map.get (listOpaque fieldF) of
-        Nothing ->
-            []
-
-        Just fieldIndex ->
-            case form_.listIndexes |> FieldIndexDict.get fieldIndex of
-                Nothing ->
-                    []
-
-                Just uniqueIndexes ->
-                    uniqueIndexes |> UniqueIndexDict.toList |> List.sortBy (Tuple.second >> .order) |> List.map Tuple.first
 
 
 getFieldIndex : field -> Form error field output -> ( Form error field output, FieldIndex )
@@ -342,7 +141,7 @@ getFieldIndex field_ form_ =
                 , fieldIndexToUse = form_.fieldIndexToUse |> FieldIndex.next
               }
             , form_.fieldIndexToUse
-            )
+            ) 
 
         Just fi ->
             ( form_, fi )

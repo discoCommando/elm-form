@@ -4,6 +4,7 @@ import Form exposing (Field, FieldList(..), FieldNested(..), Form, Get(..))
 import Form.FieldState exposing (FieldState)
 import Form.Map as Map
 import Index.FieldIndexDict as FieldIndexDict
+import Index.UniqueIndexDict as UniqueIndexDict
 import Index.UniqueIndex exposing (UniqueIndex)
 
 
@@ -54,3 +55,18 @@ nested fieldNested (Get nestedF) =
 atList : (FieldList nested -> field) -> UniqueIndex -> Get nested a -> Get field a
 atList fieldList uniqueIndex (Get nestedF) =
     Get (\field_ -> fieldList <| Form.WithIndex uniqueIndex <| nestedF field_)
+
+
+indexes : (FieldList x -> field) -> Form error field output -> List UniqueIndex
+indexes fieldF form_ =
+    case form_.fieldIndexes |> Map.get (listOpaque fieldF) of
+        Nothing ->
+            []
+
+        Just fieldIndex ->
+            case form_.listIndexes |> FieldIndexDict.get fieldIndex of
+                Nothing ->
+                    []
+
+                Just uniqueIndexes ->
+                    uniqueIndexes |> UniqueIndexDict.toList |> List.sortBy (Tuple.second >> .order) |> List.map Tuple.first
