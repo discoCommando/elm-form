@@ -247,7 +247,7 @@ validateHelper form_ validation =
                 _ =
                     Debug.log "fs" failState
             in
-            failStatuniqueIndexese |> fromFailState
+            failState |> fromFailState
 
         V_SUCCESS successState ->
             successState |> fromSuccessState
