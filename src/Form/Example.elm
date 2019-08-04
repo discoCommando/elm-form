@@ -10,7 +10,7 @@ import Html.Attributes exposing (type_, value)
 import Html.Events exposing (onClick, onInput)
 import Index.UniqueIndex exposing (UniqueIndex)
 import Form.Field as Field
-
+import Form.Get as Get
 
 
 -- FIELDS CAN BE EITHER STRING OR BOOL SINCE FIELDS IN HTML ARE ONLY THOSE
@@ -26,7 +26,7 @@ type Msg
 
 
 type FormMsg a msg
-    = T (Form.Transaction a)
+    = T (Form.Transaction.Transaction a)
     | NT msg
 
 
@@ -83,7 +83,7 @@ type alias Form =
 -- OFFER VALIDATION
 
 
-offerValidation : Form.Validation () OfferField1 Offer
+offerValidation : Form.Validation.Validation () OfferField1 Offer
 offerValidation =
     succeed Offer
         |> andMap (fromString Name string)
@@ -94,7 +94,7 @@ offerValidation =
 -- MAIN VALIDATION
 
 
-validation : Form.Validation () MainField Output
+validation : Form.Validation.Validation () MainField Output
 validation =
     succeed Output
         |> andMap (fromString Field1 int)
@@ -107,12 +107,12 @@ validation =
 -- INIT AND SETTING UP INITIAL VALUES
 
 
-initialOfferTransaction : Form.Transaction OfferField1
+initialOfferTransaction : Form.Transaction.Transaction OfferField1
 initialOfferTransaction =
     Form.Transaction.setString Name "name"
 
 
-initialTransaction : Form.Transaction MainField
+initialTransaction : Form.Transaction.Transaction MainField
 initialTransaction =
     Form.Transaction.batch
         [ Form.Transaction.setString Field1 "1"
@@ -130,34 +130,19 @@ init : Form
 init =
     Form.form validation
         |> Form.Transaction.save initialTransaction
-        |> (\form ->
-                let
-                    _ =
-                        form |> Form.get Field1 |> Debug.log "field1"
-
-                    _ =
-                        form |> Form.get (OfferField |> Form.at Name) |> Debug.log "offerfield"
-
-                    _ =
-                        form |> Form.indexes NestedOffers |> Debug.log "nested offers"
-
-                    _ =
-                        form |> Form.indexes NestedOffers |> List.map (\uiq -> form |> Form.get (NestedOffers |> Form.atIndex uiq Name)) |> Debug.log "nested list"
-                in
-                form
-           )
+        
 
 
-textInput : (Value String -> MainField) -> Form -> List (Html.Attribute Msg) -> List (Html Msg) -> Html Msg
+textInput : (Field.Value String -> MainField) -> Form -> List (Html.Attribute Msg) -> List (Html Msg) -> Html Msg
 textInput function form attributeHtmlList msgHtmlList =
-    input ([ onInput (\s -> SetString function s), value (form |> Form.get function), type_ "text" ] ++ attributeHtmlList) msgHtmlList
+    input ([ onInput (\s -> SetString function s), value (form |> Get.getString (Get.field function)), type_ "text" ] ++ attributeHtmlList) msgHtmlList
 
 
 view : Model -> Html Msg
 view model =
     div []
         [ textInput Field1 model.form [] []
-        , case model.form |> Form.getError Field1 of
+        , case model.form |> Get.getError (Get.field Field1) of
             Nothing ->
                 text ""
 
@@ -165,7 +150,7 @@ view model =
                 text "there is an error here"
         , p [] []
         , button [ onClick (AddRow NestedOffers) ] [ text "+" ]
-        , model.form |> Form.indexes NestedOffers |> List.map (\uid -> viewOffer2 |> Form.View.inIndex uid NestedOffers) |> Form.View.div [] |> Form.View.inForm model.form |> Html.map MainFormMsg
+        , model.form |> Get.indexes NestedOffers |> List.map (\uid -> viewOffer2 |> Form.View.inIndex uid NestedOffers) |> Form.View.div [] |> Form.View.inForm model.form |> Html.map MainFormMsg
         ]
 
 
@@ -176,8 +161,8 @@ viewOffer uniqueIndex model =
             Debug.log "nestedoffers" NestedOffers
     in
     div []
-        [ input [ onInput (SetInList uniqueIndex NestedOffers Name), value (model.form |> Form.get (NestedOffers |> Form.atIndex uniqueIndex Name)), type_ "text" ] []
-        , input [ onInput (SetInList uniqueIndex NestedOffers Price), value (model.form |> Form.get (NestedOffers |> Form.atIndex uniqueIndex Price)), type_ "text" ] []
+        [ input [ onInput (SetInList uniqueIndex NestedOffers Name), value (model.form |> Get.getString (Get.atList NestedOffers uniqueIndex (Get.field Name))), type_ "text" ] []
+        , input [ onInput (SetInList uniqueIndex NestedOffers Price), value (model.form |> Get.getString (Get.atList NestedOffers uniqueIndex (Get.field Price))), type_ "text" ] []
         , button [ onClick (RemoveRow uniqueIndex NestedOffers) ] [ text "-" ]
         ]
 
@@ -191,7 +176,7 @@ viewOffer2 =
         ]
 
 
-textInput2 : (Value String -> field) -> Form.View () field (Form.View.FormMsg field)
+textInput2 : (Field.Value String -> field) -> Form.View () field (Form.View.FormMsg field)
 textInput2 fieldF =
     Form.View.stringInput fieldF
         (\onInputMsg str error ->

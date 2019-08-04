@@ -13,7 +13,7 @@ import Test exposing (..)
 
 
 type SingleFieldTest
-    = SimpleTestStringField (Form.Field String)
+    = SimpleTestStringField (Form.Value String)
 
 
 type alias SingleFieldTestOutput1 =
@@ -26,7 +26,7 @@ singleFieldTest1 =
         -- simpleValidation : Form.Validation () SingleFieldTest SimpleTest1Output
         simpleValidation =
             succeed SingleFieldTestOutput1
-                |> andMap (fromString SimpleTestStringField string)
+                |> andMap (fromString SimpleTestStringValue String)
     in
     describe "Form with one string field"
         [ describe "Not setting a string" <|

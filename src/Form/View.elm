@@ -7,6 +7,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Index.UniqueIndex exposing (UniqueIndex)
 import Form.Field as Field
+import Form.Get as Get
 
 
 nested : (Field.Nested field1 -> field2) -> View error field1 (FormMsg field1) -> View error field2 (FormMsg field2)
@@ -35,19 +36,19 @@ inIndex : UniqueIndex -> (Field.List field1 -> field2) -> View error field1 (For
 inIndex uniqueIndex fieldF view =
     case view of
         VI_STRING field f ->
-            VI_STRING (Form.listField fieldF uniqueIndex << field) (\s me -> f s me |> Html.map (mapMsg <| Form.listField fieldF uniqueIndex))
+            VI_STRING (fieldF << Field.WithIndex uniqueIndex << field) (\s me -> f s me |> Html.map (mapMsg (fieldF << Field.WithIndex uniqueIndex)))
 
         VI_VIEW nodeName attrs views ->
-            VI_VIEW nodeName (attrs |> List.map (Html.Attributes.map (mapMsg <| Form.listField fieldF uniqueIndex))) (views |> List.map (inIndex uniqueIndex fieldF))
+            VI_VIEW nodeName (attrs |> List.map (Html.Attributes.map (mapMsg (fieldF << Field.WithIndex uniqueIndex)))) (views |> List.map (inIndex uniqueIndex fieldF))
 
         VI_HTML html ->
-            VI_HTML (html |> Html.map (mapMsg <| Form.listField fieldF uniqueIndex))
+            VI_HTML (html |> Html.map (mapMsg (fieldF << Field.WithIndex uniqueIndex)))
 
         VI_REMOVELASTROW field f ->
-            VI_REMOVELASTROW (Form.listField fieldF uniqueIndex field) (\uiq -> f uiq |> Html.map (mapMsg <| Form.listField fieldF uniqueIndex))
+            VI_REMOVELASTROW (fieldF <| Field.WithIndex uniqueIndex field) (\uiq -> f uiq |> Html.map (mapMsg (fieldF << Field.WithIndex uniqueIndex)))
 
         VI_INLIST field f ->
-            VI_INLIST (Form.listField fieldF uniqueIndex field) (\uiqs -> f uiqs |> inIndex uniqueIndex fieldF)
+            VI_INLIST (fieldF <| Field.WithIndex uniqueIndex field) (\uiqs -> f uiqs |> inIndex uniqueIndex fieldF)
 
         VI_LAZY f ->
             VI_LAZY (f >> inIndex uniqueIndex fieldF)
@@ -57,7 +58,7 @@ inForm : Form.Form error field output -> View error field msg -> Html msg
 inForm form view =
     case view of
         VI_STRING field f ->
-            f (form |> Form.get field) (form |> Form.getError field)
+            f (form |> Get.getString (Get.field field)) (form |> Get.getError (Get.field field))
 
         VI_VIEW nodeName attrs views ->
             Html.node nodeName attrs (views |> List.map (inForm form))
@@ -66,10 +67,10 @@ inForm form view =
             html
 
         VI_REMOVELASTROW field f ->
-            f (form |> Form.indexes (\_ -> field) |> List.reverse |> List.head)
+            f (form |> Get.indexes (\_ -> field) |> List.reverse |> List.head)
 
         VI_INLIST field f ->
-            f (form |> Form.indexes (\_ -> field)) |> inForm form
+            f (form |> Get.indexes (\_ -> field)) |> inForm form
 
         VI_LAZY f ->
             inForm form (f ())
