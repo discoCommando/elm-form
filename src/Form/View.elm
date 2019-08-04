@@ -1,13 +1,13 @@
 module Form.View exposing (FormMsg(..), addRow, div, inForm, inIndex, inList, mapMsg, nested, node, removeLastRow, removeRow, stringInput, update)
 
 import Form exposing (View(..))
+import Form.Field as Field
+import Form.Get as Get
 import Form.Transaction exposing (Transaction)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Index.UniqueIndex exposing (UniqueIndex)
-import Form.Field as Field
-import Form.Get as Get
 
 
 nested : (Field.Nested field1 -> field2) -> View error field1 (FormMsg field1) -> View error field2 (FormMsg field2)

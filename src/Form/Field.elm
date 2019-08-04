@@ -1,6 +1,7 @@
-module Form.Field exposing (Value(..), List(..), Nested(..))
+module Form.Field exposing (List(..), Nested(..), Value(..))
 
 import Index.UniqueIndex exposing (UniqueIndex)
+
 
 type Value a
     = Value

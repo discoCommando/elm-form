@@ -1,16 +1,16 @@
-module Form.Get exposing (atList, field, getError, getHelper, getString, nested, indexes)
+module Form.Get exposing (atList, field, getError, getHelper, getString, indexes, nested)
 
+import Form.Field as Field
 import Form.FieldState exposing (FieldState)
 import Form.Map as Map
-import Index.FieldIndexDict as FieldIndexDict
-import Index.UniqueIndexDict as UniqueIndexDict
-import Index.UniqueIndex exposing (UniqueIndex)
-import Form.Field as Field
 import Form.Type exposing (Form)
+import Index.FieldIndexDict as FieldIndexDict
+import Index.UniqueIndex exposing (UniqueIndex)
+import Index.UniqueIndexDict as UniqueIndexDict
 
 
-type Get field resultType = Get (Field.Value resultType -> field)
-
+type Get field resultType
+    = Get (Field.Value resultType -> field)
 
 
 field : (Field.Value a -> field) -> Get field a

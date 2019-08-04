@@ -1,16 +1,17 @@
-module Form.Example exposing (..)
+module Form.Example exposing (Form, FormMsg(..), MainField(..), Model, Msg(..), Offer, OfferField1(..), Output, init, initialOfferTransaction, initialTransaction, main, offerValidation, textInput, textInput2, update, validation, view, viewOffer, viewOffer2)
 
 import Browser
 import Form exposing (Form)
+import Form.Field as Field
+import Form.Get as Get
 import Form.Transaction
-import Form.Validation exposing (succeed, andMap, fromString , int, fromNested, fromList, string, optional)
+import Form.Validation exposing (andMap, fromList, fromNested, fromString, int, optional, string, succeed)
 import Form.View
 import Html exposing (Html, button, div, input, p, span, text)
 import Html.Attributes exposing (type_, value)
 import Html.Events exposing (onClick, onInput)
 import Index.UniqueIndex exposing (UniqueIndex)
-import Form.Field as Field
-import Form.Get as Get
+
 
 
 -- FIELDS CAN BE EITHER STRING OR BOOL SINCE FIELDS IN HTML ARE ONLY THOSE
@@ -39,6 +40,8 @@ type MainField
     | OfferField (Field.Nested OfferField1) -- NESTED FIELD
       -- | Field3 (List (Types.Value String)) -- SIMPLE STRING LIST FIELD
     | NestedOffers (Field.List OfferField1) -- NESTED LIST FIELD
+
+
 
 -- OfferField : Nested OfferField1 -> MainField
 -- Name : Value String -> OfferField1
@@ -130,7 +133,6 @@ init : Form
 init =
     Form.form validation
         |> Form.Transaction.save initialTransaction
-        
 
 
 textInput : (Field.Value String -> MainField) -> Form -> List (Html.Attribute Msg) -> List (Html Msg) -> Html Msg

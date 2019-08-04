@@ -1,17 +1,18 @@
-module Form.Type exposing (..)
+module Form.Type exposing (Form, UniqueIndexDictState)
 
 import Form.FieldState exposing (FieldState)
+import Form.Map as Map exposing (Map)
 import Index.FieldIndex as FieldIndex exposing (..)
 import Index.FieldIndexDict as FieldIndexDict exposing (..)
 import Index.UniqueIndex as UniqueIndex exposing (..)
 import Index.UniqueIndexDict as UniqueIndexDict exposing (..)
-import Form.Map as Map exposing (Map)
 
 
 type alias UniqueIndexDictState =
     { fieldIndexSet : FieldIndexDict ()
     , order : Int -- made for the order
     }
+
 
 type alias Form error field output validation =
     { fieldIndexes : Map field FieldIndex

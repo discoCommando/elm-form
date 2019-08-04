@@ -1,5 +1,6 @@
 module Form.Validation exposing
-    ( Validation
+    ( Form
+    , Validation
     , andMap
     , andThen
     , failure
@@ -15,7 +16,6 @@ module Form.Validation exposing
     , string
     , succeed
     , validate_
-    , Form 
     )
 
 import Form.Field as Field
