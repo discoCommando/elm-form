@@ -33,6 +33,7 @@ module Form exposing
     , setErrors
     , validate
     , validateHelper
+    , Get(..)
     )
 
 -- COMPOSABLE
@@ -70,6 +71,8 @@ type View error field msg
     | VI_REMOVELASTROW field (Maybe UniqueIndex -> Html msg)
     | VI_INLIST field (List UniqueIndex -> View error field msg)
     | VI_LAZY (() -> View error field msg)
+
+type Get field resultType = Get (Field resultType -> field)
 
 
 type Field a
@@ -244,7 +247,7 @@ validateHelper form_ validation =
                 _ =
                     Debug.log "fs" failState
             in
-            failState |> fromFailState
+            failStatuniqueIndexese |> fromFailState
 
         V_SUCCESS successState ->
             successState |> fromSuccessState
@@ -314,52 +317,6 @@ merge fields1 fields2 =
                         )
             )
             fields2
-
-
-get : (Field String -> field) -> Form error field output -> String
-get fieldF form_ =
-    case form_.fieldIndexes |> Map.get (field fieldF) of
-        Nothing ->
-            ""
-
-        Just fieldIndex ->
-            case form_.values |> FieldIndexDict.get fieldIndex of
-                Nothing ->
-                    ""
-
-                Just fieldState ->
-                    case fieldState.value of
-                        Form.FieldState.FVString s ->
-                            s
-
-                        _ ->
-                            ""
-
-
-getError : (Field x -> field) -> Form error field output -> Maybe error
-getError fieldF form_ =
-    case form_.fieldIndexes |> Map.get (field fieldF) of
-        Nothing ->
-            Nothing
-
-        Just fieldIndex ->
-            case form_.values |> FieldIndexDict.get fieldIndex of
-                Nothing ->
-                    Nothing
-
-                Just fieldState ->
-                    fieldState.error
-
-
-at : (a -> field1) -> (FieldNested field1 -> field) -> (a -> field)
-at f fn a =
-    fn (WithValue (f a))
-
-
-atIndex : UniqueIndex -> (a -> field1) -> (FieldList field1 -> field) -> (a -> field)
-atIndex uiq f fn a =
-    fn (WithIndex uiq (f a))
-
 
 indexes : (FieldList x -> field) -> Form error field output -> List UniqueIndex
 indexes fieldF form_ =
