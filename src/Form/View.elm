@@ -1,13 +1,22 @@
-module Form.View exposing (FormMsg(..), addRow, div, inForm, inIndex, inList, mapMsg, nested, node, removeLastRow, removeRow, stringInput, update)
+module Form.View exposing (FormMsg(..),
+ addRow, div, inForm, inIndex, inList, mapMsg, nested, node, removeLastRow, removeRow, stringInput, update, View)
 
-import Form exposing (View(..))
 import Form.Field as Field
 import Form.Get as Get
 import Form.Transaction exposing (Transaction)
+import Form.Validation exposing (Form)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Index.UniqueIndex exposing (UniqueIndex)
+
+type View error field msg
+    = VI_STRING (Field.Value String -> field) (String -> Maybe error -> Html msg)
+    | VI_HTML (Html msg)
+    | VI_VIEW String (List (Html.Attribute msg)) (List (View error field msg))
+    | VI_REMOVELASTROW field (Maybe UniqueIndex -> Html msg)
+    | VI_INLIST field (List UniqueIndex -> View error field msg)
+    | VI_LAZY (() -> View error field msg)
 
 
 nested : (Field.Nested field1 -> field2) -> View error field1 (FormMsg field1) -> View error field2 (FormMsg field2)
@@ -54,7 +63,7 @@ inIndex uniqueIndex fieldF view =
             VI_LAZY (f >> inIndex uniqueIndex fieldF)
 
 
-inForm : Form.Form error field output -> View error field msg -> Html msg
+inForm : Form error field output -> View error field msg -> Html msg
 inForm form view =
     case view of
         VI_STRING field f ->
@@ -120,7 +129,7 @@ inList fieldListF f =
     VI_INLIST (fieldListF Field.OpaqueList) f
 
 
-update : FormMsg field -> Form.Form error field output -> Form.Form error field output
+update : FormMsg field -> Form error field output -> Form error field output
 update msg form =
     case msg of
         FormMsg transaction ->

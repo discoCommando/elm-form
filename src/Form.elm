@@ -1,6 +1,6 @@
 module Form exposing
     ( Form
-    , View(..)
+    , View
     , form
     , getOutput
     , validate
@@ -17,16 +17,9 @@ import Html exposing (Html)
 import Index.FieldIndex as FieldIndex exposing (FieldIndex)
 import Index.FieldIndexDict as FieldIndexDict
 import Index.UniqueIndex as UniqueIndex exposing (UniqueIndex)
+import Form.View 
 
-
-type View error field msg
-    = VI_STRING (Field.Value String -> field) (String -> Maybe error -> Html msg)
-    | VI_HTML (Html msg)
-    | VI_VIEW String (List (Html.Attribute msg)) (List (View error field msg))
-    | VI_REMOVELASTROW field (Maybe UniqueIndex -> Html msg)
-    | VI_INLIST field (List UniqueIndex -> View error field msg)
-    | VI_LAZY (() -> View error field msg)
-
+type alias View error field msg = Form.View.View error field msg
 
 type alias Form field error output =
     Form.Validation.Form field error output
