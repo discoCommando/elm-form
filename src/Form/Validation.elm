@@ -16,6 +16,8 @@ module Form.Validation exposing
     , string
     , succeed
     , validate_
+    , andMapDiscard
+    , mapError
     )
 
 import Form.Field as Field
@@ -256,6 +258,12 @@ andMap validation validationF =
         V_RESULT vr ->
             andMapVR vr validationF
 
+andMapDiscard : Validation error field output1 -> Validation error field output2 -> Validation error field output2 
+andMapDiscard validation1 validation2 = 
+    succeed (\_ x -> x)
+        |> andMap validation1 
+        |> andMap validation2
+
 
 succeed : output -> Validation error field output
 succeed output =
@@ -381,3 +389,17 @@ merge fields1 fields2 =
 mapFailState : (field1 -> field2) -> FailState error field1 -> FailState error field2
 mapFailState mapf failState =
     { errors = failState.errors |> Map.mapBoth (\key failCell -> ( key |> mapf, failCell )) }
+
+mapError : (error1 -> error2) -> Validation error1 field output -> Validation error2 field output 
+mapError f validation = 
+    case validation of 
+        V_ACTION va -> 
+            V_ACTION <| mapVAVs (mapError f) va 
+
+        V_RESULT vr -> 
+            V_RESULT <| case vr of  
+                VR_SUCCESS { output } ->
+                    VR_SUCCESS { output = output }
+
+                VR_FAIL { errors } ->
+                    VR_FAIL { errors = errors |> Map.mapValue (\{ error } -> { error = Maybe.map f error } )}

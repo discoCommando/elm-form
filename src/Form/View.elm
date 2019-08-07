@@ -1,5 +1,19 @@
-module Form.View exposing (FormMsg(..),
- addRow, div, inForm, inIndex, inList, mapMsg, nested, node, removeLastRow, removeRow, stringInput, update, View)
+module Form.View exposing
+    ( FormMsg(..)
+    , View
+    , addRow
+    , div
+    , inForm
+    , inIndex
+    , inList
+    , mapMsg
+    , nested
+    , node
+    , removeLastRow
+    , removeRow
+    , stringInput
+    , update
+    )
 
 import Form.Field as Field
 import Form.Get as Get
@@ -9,6 +23,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Index.UniqueIndex exposing (UniqueIndex)
+
 
 type View error field msg
     = VI_STRING (Field.Value String -> field) (String -> Maybe error -> Html msg)

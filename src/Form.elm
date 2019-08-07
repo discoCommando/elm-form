@@ -1,6 +1,7 @@
 module Form exposing
     ( Form
     , View
+    , Validation
     , form
     , getOutput
     , validate
@@ -13,13 +14,19 @@ import Form.Field as Field
 import Form.FieldState exposing (FieldState)
 import Form.Map as Map exposing (Map)
 import Form.Validation exposing (Validation, validate_)
+import Form.View
 import Html exposing (Html)
 import Index.FieldIndex as FieldIndex exposing (FieldIndex)
 import Index.FieldIndexDict as FieldIndexDict
 import Index.UniqueIndex as UniqueIndex exposing (UniqueIndex)
-import Form.View 
 
-type alias View error field msg = Form.View.View error field msg
+
+type alias View error field msg =
+    Form.View.View error field msg
+
+type alias Validation error field output = 
+    Form.Validation.Validation error field output 
+
 
 type alias Form field error output =
     Form.Validation.Form field error output
