@@ -70,30 +70,33 @@ parsePlan s =
         _ ->
             Err "Invalid plan"
 
+passwordValidation : Form.Validation String Field Password 
+passwordValidation =
+    succeed (\a b -> (a,b)) 
+        |> andMap (fromString Password parsePassword)
+        |> andMap (fromString RepeatPassword string)
+        |> andThen (\(Password_ p, rp) -> 
+                if p == rp then 
+                    Password_ p |> succeed 
+                else 
+                    failure RepeatPassword "The passwords must match"
+            )
+
 
 validation : Form.Validation String Field UserDetails
 validation =
     succeed UserDetails
         |> andMap (fromString Name (string |> optional) |> mapError (\_ -> ""))
         |> andMap (fromString Email emailValidation)
-        |> andMap
-            (fromString Password parsePassword
-                |> andThen
-                    (\(Password_ p) ->
-                        fromString RepeatPassword parsePassword
-                            |> andThen
-                                (\(Password_ rp) ->
-                                    if p == rp then
-                                        succeed <| Password_ p
-
-                                    else
-                                        failure RepeatPassword "The passwords must match"
-                                )
-                    )
-            )
+        |> andMap passwordValidation
         |> andMapDiscard (fromString AgreedToTerms (string >> Result.map (\s -> s == "1")) |> mapError (\_ -> "No value"))
         |> andMap (fromString Plan parsePlan)
 
 form : Form 
 form = Form.form validation 
 
+
+-- validate on blur
+-- add bools
+-- add isTrue for submitted 
+-- add required that takes boolean (is submitted)

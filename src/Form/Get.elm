@@ -1,4 +1,4 @@
-module Form.Get exposing (atList, field, getError, getHelper, getString, indexes, nested)
+module Form.Get exposing (atList, field, getError, getHelper, getString, indexes, nested, Result(..), toMaybe)
 
 import Form.Field as Field
 import Form.FieldState exposing (FieldState)
@@ -12,22 +12,34 @@ import Index.UniqueIndexDict as UniqueIndexDict
 type Get field resultType
     = Get (Field.Value resultType -> field)
 
+type Result resultType 
+    = Edited resultType 
+    | NotEdited 
+
+toMaybe : Result a -> Maybe a 
+toMaybe r = 
+    case r of 
+        Edited a -> 
+            Just a 
+
+        NotEdited -> 
+            Nothing
 
 field : (Field.Value a -> field) -> Get field a
 field =
     Get
 
 
-getString : Get field String -> Form error field output validation -> String
+getString : Get field String -> Form error field output validation -> Result String
 getString =
     getHelper <|
         \mFieldState ->
             case mFieldState of
                 Nothing ->
-                    ""
+                    NotEdited
 
                 Just fieldState ->
-                    case fieldState.value of
+                    Edited <| case fieldState.value of
                         Form.FieldState.FVString s ->
                             s
 

@@ -82,7 +82,7 @@ inForm : Form error field output -> View error field msg -> Html msg
 inForm form view =
     case view of
         VI_STRING field f ->
-            f (form |> Get.getString (Get.field field)) (form |> Get.getError (Get.field field))
+            f (form |> Get.getString (Get.field field) |> Get.toMaybe |> Maybe.withDefault "") (form |> Get.getError (Get.field field))
 
         VI_VIEW nodeName attrs views ->
             Html.node nodeName attrs (views |> List.map (inForm form))

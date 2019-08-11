@@ -36,7 +36,7 @@ type Validation error field output
 
 
 type ValidationAction error field output
-    = VA_STR field (String -> Validation error field output)
+    = VA_STR field (Get.Result String -> Validation error field output)
     | VA_LIST field (List UniqueIndex -> Validation error field output)
     | VA_LAZY (() -> Validation error field output)
 
@@ -62,14 +62,19 @@ type alias Form error field output =
     Form.Type.Form error field output (Validation error field output)
 
 
-string : String -> Result () String
-string s =
-    case s of
-        "" ->
-            Err ()
+string : Get.Result String -> Result () String
+string gs =
+    case gs of 
+        Get.Edited s -> 
+            case s of
+                "" ->
+                    Err ()
 
-        ss ->
-            Ok ss
+                ss ->
+                    Ok ss
+
+        Get.NotEdited -> 
+            Err ()
 
 
 int : String -> Result () Int
@@ -77,17 +82,17 @@ int =
     String.toInt >> Result.fromMaybe ()
 
 
-optional : (String -> Result error output) -> (String -> Result error (Maybe output))
-optional f s =
-    case s of
-        "" ->
+optional : (a -> Result error output) -> (Get.Result a -> Result error (Maybe output))
+optional f gr =
+    case gr of
+        Get.NotEdited ->
             Ok Nothing
 
-        _ ->
+        Get.Edited s ->
             f s |> Result.map Just
 
 
-fromString : (Field.Value String -> field) -> (String -> Result error output) -> Validation error field output
+fromString : (Field.Value String -> field) -> (Get.Result String -> Result error output) -> Validation error field output
 fromString fieldF strVal =
     V_ACTION <|
         VA_STR

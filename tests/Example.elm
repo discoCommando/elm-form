@@ -7,7 +7,9 @@ import Form.Validation exposing (andMap, fromString, string, succeed, int)
 import Fuzz exposing (Fuzzer, list)
 import Test exposing (..)
 
-
+-- list of tests to add:
+    -- field not edited should be empty
+    -- add value, check its not empty
 
 -- Single Field Tests
 
