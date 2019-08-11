@@ -1,15 +1,19 @@
 module Form.Validation exposing
     ( Form
+    , Submitted(..)
     , Validation
     , andMap
     , andMapDiscard
     , andThen
     , anyString
     , failure
+    , fromBool
     , fromList
     , fromNested
     , fromString
     , int
+    , isSubmitted
+    , isTrue
     , lazy
     , makeList
     , map
@@ -33,6 +37,17 @@ import Index.FieldIndexDict as FieldIndexDict
 import Index.UniqueIndex exposing (UniqueIndex)
 
 
+
+-- few states
+-- field not edited
+-- form not submitted
+-- form submitted
+-- field edited
+-- form submitted
+-- form not submitted
+-- validation happens after onblur
+
+
 type Validation error field output
     = V_ACTION (ValidationAction error field output)
     | V_RESULT (ValidationResult error field output)
@@ -43,6 +58,11 @@ type ValidationAction error field output
     | VA_BOOL field (Get.Result Bool -> Validation error field output)
     | VA_LIST field (List UniqueIndex -> Validation error field output)
     | VA_LAZY (() -> Validation error field output)
+
+
+type Submitted
+    = Submitted
+    | NotSubmitted
 
 
 type alias FailCell error =
@@ -96,15 +116,16 @@ optional f gr =
             f s |> Result.map Just
 
 
-required : Bool -> (a -> Result CommonError output) -> (Get.Result a -> Result CommonError output)
+required : Submitted -> (a -> Result CommonError output) -> (Get.Result a -> Result CommonError output)
 required submitted f gr =
     case gr of
         Get.NotEdited ->
-            if submitted then
-                Err NotFound
+            case submitted of
+                Submitted ->
+                    Err NotFound
 
-            else
-                Err NotEditedYet
+                NotSubmitted ->
+                    Err NotEditedYet
 
         Get.Edited a ->
             f a
@@ -138,6 +159,42 @@ fromBool fieldF parseFunction =
                     Ok v ->
                         succeed v
             )
+
+
+isSubmitted : (Field.Value Bool -> field) -> Validation error field Submitted
+isSubmitted fieldF =
+    fromBool
+        fieldF
+        (\rb ->
+            case rb of
+                Get.Edited True ->
+                    Ok Submitted
+
+                _ ->
+                    Ok NotSubmitted
+        )
+
+
+isTrue : (Field.Value Bool -> field) -> Submitted -> Validation CommonError field ()
+isTrue fieldF submitted =
+    fromBool fieldF
+        (\rb ->
+            case rb of
+                Get.NotEdited ->
+                    case submitted of
+                        Submitted ->
+                            Err NotFound
+
+                        NotSubmitted ->
+                            Err NotEditedYet
+
+                Get.Edited b ->
+                    if b then
+                        Ok ()
+
+                    else
+                        Err NotFound
+        )
 
 
 fromNested : (Field.Nested x -> field) -> Validation error x output -> Validation error field output

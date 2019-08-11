@@ -10,7 +10,10 @@ import Form.Validation
         , andThen
         , anyString
         , failure
+        , fromBool
         , fromString
+        , isSubmitted
+        , isTrue
         , map
         , mapError
         , nonEmptyString
@@ -40,7 +43,8 @@ type Field
     | Password (Field.Value String)
     | RepeatPassword (Field.Value String)
     | Plan (Field.Value String)
-    | AgreedToTerms (Field.Value String)
+    | AgreedToTerms (Field.Value Bool)
+    | Submitted (Field.Value Bool)
 
 
 type alias UserDetails =
@@ -91,11 +95,11 @@ parsePlan s =
             Err <| CommonError.custom "Invalid plan"
 
 
-passwordValidation : Validation Password
-passwordValidation =
+passwordValidation : Form.Validation.Submitted -> Validation Password
+passwordValidation submitted =
     succeed (\a b -> ( a, b ))
-        |> andMap (fromString Password <| required True parsePassword)
-        |> andMap (fromString RepeatPassword <| required True anyString)
+        |> andMap (fromString Password <| required submitted parsePassword)
+        |> andMap (fromString RepeatPassword <| required submitted anyString)
         |> andThen
             (\( Password_ p, rp ) ->
                 if p == rp then
@@ -108,12 +112,16 @@ passwordValidation =
 
 validation : Validation UserDetails
 validation =
-    succeed UserDetails
-        |> andMap (fromString Name <| optional anyString)
-        |> andMap (fromString Email <| required True parseEmail)
-        |> andMap passwordValidation
-        |> andMapDiscard (fromString AgreedToTerms <| required True (anyString >> Result.map (\s -> s == "1")))
-        |> andMap (fromString Plan <| required True parsePlan)
+    isSubmitted Submitted
+        |> andThen
+            (\submitted ->
+                succeed UserDetails
+                    |> andMap (fromString Name <| optional anyString)
+                    |> andMap (fromString Email <| required submitted parseEmail)
+                    |> andMap (passwordValidation submitted)
+                    |> andMapDiscard (isTrue AgreedToTerms submitted)
+                    |> andMap (fromString Plan <| required submitted parsePlan)
+            )
 
 
 form : Form
