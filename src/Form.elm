@@ -1,7 +1,7 @@
 module Form exposing
     ( Form
-    , View
     , Validation
+    , View
     , form
     , getOutput
     , validate
@@ -24,8 +24,9 @@ import Index.UniqueIndex as UniqueIndex exposing (UniqueIndex)
 type alias View error field msg =
     Form.View.View error field msg
 
-type alias Validation error field output = 
-    Form.Validation.Validation error field output 
+
+type alias Validation error field output =
+    Form.Validation.Validation error field output
 
 
 type alias Form field error output =

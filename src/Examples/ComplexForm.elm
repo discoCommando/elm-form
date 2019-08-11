@@ -1,10 +1,24 @@
-module ComplexForm exposing (..)
+module ComplexForm exposing (Email(..), Field(..), Form, Password(..), Plan(..), UserDetails, Validation, form, parseEmail, parsePassword, parsePlan, passwordValidation, validation)
 
 import Form
+import Form.CommonError as CommonError exposing (CommonError(..))
 import Form.Field as Field
-import Form.Validation exposing (andMap, 
-    andThen, failure, fromString, map, optional, anyString, nonEmptyString ,succeed, andMapDiscard, mapError, required)
-import Form.CommonError as CommonError exposing (CommonError(..)) 
+import Form.Validation
+    exposing
+        ( andMap
+        , andMapDiscard
+        , andThen
+        , anyString
+        , failure
+        , fromString
+        , map
+        , mapError
+        , nonEmptyString
+        , optional
+        , required
+        , succeed
+        )
+
 
 type Plan
     = Basic
@@ -40,8 +54,9 @@ type alias UserDetails =
 type alias Form =
     Form.Form CommonError Field UserDetails
 
+
 type alias Validation output =
-    Form.Validation CommonError Field output 
+    Form.Validation CommonError Field output
 
 
 parseEmail : String -> Result CommonError Email
@@ -60,6 +75,7 @@ parsePassword s =
     else
         Err <| CommonError.custom "Password must be at least 6 characters"
 
+
 parsePlan s =
     case s of
         "Basic" ->
@@ -74,15 +90,18 @@ parsePlan s =
         _ ->
             Err <| CommonError.custom "Invalid plan"
 
-passwordValidation : Validation Password 
+
+passwordValidation : Validation Password
 passwordValidation =
-    succeed (\a b -> (a,b)) 
+    succeed (\a b -> ( a, b ))
         |> andMap (fromString Password <| required True parsePassword)
         |> andMap (fromString RepeatPassword <| required True anyString)
-        |> andThen (\(Password_ p, rp) -> 
-                if p == rp then 
-                    Password_ p |> succeed 
-                else 
+        |> andThen
+            (\( Password_ p, rp ) ->
+                if p == rp then
+                    Password_ p |> succeed
+
+                else
                     failure RepeatPassword <| CommonError.custom "The passwords must match"
             )
 
@@ -96,11 +115,14 @@ validation =
         |> andMapDiscard (fromString AgreedToTerms <| required True (anyString >> Result.map (\s -> s == "1")))
         |> andMap (fromString Plan <| required True parsePlan)
 
-form : Form 
-form = Form.form validation 
+
+form : Form
+form =
+    Form.form validation
+
 
 
 -- validate on blur
 -- add bools
--- add isTrue for submitted 
+-- add isTrue for submitted
 -- add required that takes boolean (is submitted)

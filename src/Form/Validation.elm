@@ -2,7 +2,9 @@ module Form.Validation exposing
     ( Form
     , Validation
     , andMap
+    , andMapDiscard
     , andThen
+    , anyString
     , failure
     , fromList
     , fromNested
@@ -11,17 +13,16 @@ module Form.Validation exposing
     , lazy
     , makeList
     , map
+    , mapError
     , mapField
-    , optional
-    , anyString
     , nonEmptyString
+    , optional
+    , required
     , succeed
     , validate_
-    , andMapDiscard
-    , mapError
-    , required
     )
 
+import Form.CommonError exposing (CommonError(..))
 import Form.Field as Field
 import Form.FieldState
 import Form.Get as Get
@@ -30,7 +31,6 @@ import Form.Type
 import Index.FieldIndex as FieldIndex
 import Index.FieldIndexDict as FieldIndexDict
 import Index.UniqueIndex exposing (UniqueIndex)
-import Form.CommonError exposing (CommonError(..))
 
 
 type Validation error field output
@@ -43,6 +43,7 @@ type ValidationAction error field output
     | VA_BOOL field (Get.Result Bool -> Validation error field output)
     | VA_LIST field (List UniqueIndex -> Validation error field output)
     | VA_LAZY (() -> Validation error field output)
+
 
 type alias FailCell error =
     { error : Maybe error }
@@ -69,14 +70,15 @@ anyString : String -> Result x String
 anyString s =
     Ok s
 
-nonEmptyString : String -> Result CommonError String 
-nonEmptyString s =
-    case s of 
-        "" -> 
-            Err NotFound 
 
-        _ -> 
-            Ok s 
+nonEmptyString : String -> Result CommonError String
+nonEmptyString s =
+    case s of
+        "" ->
+            Err NotFound
+
+        _ ->
+            Ok s
 
 
 int : String -> Result () Int
@@ -93,16 +95,18 @@ optional f gr =
         Get.Edited s ->
             f s |> Result.map Just
 
-required : Bool -> (a -> Result CommonError output) -> (Get.Result a -> Result CommonError output)
-required submitted f gr = 
-    case gr of 
-        Get.NotEdited -> 
-            if submitted then 
-                Err NotFound
-            else 
-                Err NotEditedYet 
 
-        Get.Edited a -> 
+required : Bool -> (a -> Result CommonError output) -> (Get.Result a -> Result CommonError output)
+required submitted f gr =
+    case gr of
+        Get.NotEdited ->
+            if submitted then
+                Err NotFound
+
+            else
+                Err NotEditedYet
+
+        Get.Edited a ->
             f a
 
 
@@ -120,7 +124,8 @@ fromString fieldF parseFunction =
                         succeed v
             )
 
-fromBool : (Field.Value Bool -> field) -> (Get.Result Bool -> Result error output) -> Validation error field output 
+
+fromBool : (Field.Value Bool -> field) -> (Get.Result Bool -> Result error output) -> Validation error field output
 fromBool fieldF parseFunction =
     V_ACTION <|
         VA_BOOL
@@ -133,6 +138,7 @@ fromBool fieldF parseFunction =
                     Ok v ->
                         succeed v
             )
+
 
 fromNested : (Field.Nested x -> field) -> Validation error x output -> Validation error field output
 fromNested fieldNF validation =
@@ -155,7 +161,7 @@ mapField mapF validation =
                     VA_STR f1 cont ->
                         VA_STR (f1 |> mapF) (\s -> cont s |> mapField mapF)
 
-                    VA_BOOL f1 cont -> 
+                    VA_BOOL f1 cont ->
                         VA_BOOL (f1 |> mapF) (\s -> cont s |> mapField mapF)
 
                     VA_LIST fl fi ->
@@ -296,10 +302,11 @@ andMap validation validationF =
         V_RESULT vr ->
             andMapVR vr validationF
 
-andMapDiscard : Validation error field output1 -> Validation error field output2 -> Validation error field output2 
-andMapDiscard validation1 validation2 = 
+
+andMapDiscard : Validation error field output1 -> Validation error field output2 -> Validation error field output2
+andMapDiscard validation1 validation2 =
     succeed (\_ x -> x)
-        |> andMap validation1 
+        |> andMap validation1
         |> andMap validation2
 
 
@@ -329,7 +336,6 @@ resolve form validation =
                             Get.getString (Get.field (\_ -> field_)) form
                     in
                     resolve form <| cont stringValue
-
 
                 VA_BOOL field_ cont ->
                     let
@@ -436,16 +442,18 @@ mapFailState : (field1 -> field2) -> FailState error field1 -> FailState error f
 mapFailState mapf failState =
     { errors = failState.errors |> Map.mapBoth (\key failCell -> ( key |> mapf, failCell )) }
 
-mapError : (error1 -> error2) -> Validation error1 field output -> Validation error2 field output 
-mapError f validation = 
-    case validation of 
-        V_ACTION va -> 
-            V_ACTION <| mapVAVs (mapError f) va 
 
-        V_RESULT vr -> 
-            V_RESULT <| case vr of  
-                VR_SUCCESS { output } ->
-                    VR_SUCCESS { output = output }
+mapError : (error1 -> error2) -> Validation error1 field output -> Validation error2 field output
+mapError f validation =
+    case validation of
+        V_ACTION va ->
+            V_ACTION <| mapVAVs (mapError f) va
 
-                VR_FAIL { errors } ->
-                    VR_FAIL { errors = errors |> Map.mapValue (\{ error } -> { error = Maybe.map f error } )}
+        V_RESULT vr ->
+            V_RESULT <|
+                case vr of
+                    VR_SUCCESS { output } ->
+                        VR_SUCCESS { output = output }
+
+                    VR_FAIL { errors } ->
+                        VR_FAIL { errors = errors |> Map.mapValue (\{ error } -> { error = Maybe.map f error }) }

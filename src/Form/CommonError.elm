@@ -1,10 +1,12 @@
 module Form.CommonError exposing (CommonError(..), custom)
 
-type CommonError 
-    = NotFound 
+
+type CommonError
+    = NotFound
     | NotEditedYet
     | Custom String
 
-custom : String -> CommonError
-custom = Custom 
 
+custom : String -> CommonError
+custom =
+    Custom

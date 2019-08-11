@@ -1,4 +1,4 @@
-module Form.Get exposing (atList, field, getError, getHelper, getString, indexes, nested, Result(..), toMaybe, getBool)
+module Form.Get exposing (Result(..), atList, field, getBool, getError, getHelper, getString, indexes, nested, toMaybe)
 
 import Form.Field as Field
 import Form.FieldState exposing (FieldState)
@@ -12,18 +12,21 @@ import Index.UniqueIndexDict as UniqueIndexDict
 type Get field resultType
     = Get (Field.Value resultType -> field)
 
-type Result resultType 
-    = Edited resultType 
-    | NotEdited 
 
-toMaybe : Result a -> Maybe a 
-toMaybe r = 
-    case r of 
-        Edited a -> 
-            Just a 
+type Result resultType
+    = Edited resultType
+    | NotEdited
 
-        NotEdited -> 
+
+toMaybe : Result a -> Maybe a
+toMaybe r =
+    case r of
+        Edited a ->
+            Just a
+
+        NotEdited ->
             Nothing
+
 
 field : (Field.Value a -> field) -> Get field a
 field =
@@ -39,15 +42,17 @@ getString =
                     NotEdited
 
                 Just fieldState ->
-                    Edited <| case fieldState.value of
-                        Form.FieldState.FVString s ->
-                            s
+                    Edited <|
+                        case fieldState.value of
+                            Form.FieldState.FVString s ->
+                                s
 
-                        _ ->
-                            ""
+                            _ ->
+                                ""
 
-getBool : Get field Bool -> Form error field output validation -> Result Bool 
-getBool = 
+
+getBool : Get field Bool -> Form error field output validation -> Result Bool
+getBool =
     getHelper <|
         \mFieldState ->
             case mFieldState of
@@ -55,12 +60,13 @@ getBool =
                     NotEdited
 
                 Just fieldState ->
-                    Edited <| case fieldState.value of
-                        Form.FieldState.FVBool b ->
-                            b
+                    Edited <|
+                        case fieldState.value of
+                            Form.FieldState.FVBool b ->
+                                b
 
-                        _ ->
-                            False
+                            _ ->
+                                False
 
 
 getError : Get field a -> Form error field output validation -> Maybe error

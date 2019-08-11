@@ -123,7 +123,8 @@ stringInput : (Field.Value String -> field) -> ((String -> FormMsg field) -> Str
 stringInput field f =
     VI_STRING field (f (Form.Transaction.setString field >> FormMsg))
 
-boolInput : (Field.Value Bool -> field) ->  ((Bool -> FormMsg field) -> Bool -> Maybe error -> Html msg) -> View error field msg
+
+boolInput : (Field.Value Bool -> field) -> ((Bool -> FormMsg field) -> Bool -> Maybe error -> Html msg) -> View error field msg
 boolInput field f =
     VI_BOOL field (f (Form.Transaction.setBool field >> FormMsg))
 

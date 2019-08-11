@@ -9,9 +9,9 @@ module Form.Transaction exposing
     , save
     , saveHelper
     , setAtIndex
+    , setBool
     , setNested
     , setString
-    , setBool
     )
 
 import Form.Field as Field
@@ -26,7 +26,7 @@ import Index.UniqueIndexDict as UniqueIndexDict
 
 type Transaction field
     = T_STR (Field.Value String -> field) String
-    | T_BOOL (Field.Value Bool -> field) Bool 
+    | T_BOOL (Field.Value Bool -> field) Bool
     | T_ADDROW field (UniqueIndex -> Transaction field)
     | T_SETINLIST field UniqueIndex (Transaction field)
     | T_REMOVEROW field UniqueIndex
@@ -46,8 +46,9 @@ setString : (Field.Value String -> field) -> String -> Transaction field
 setString =
     T_STR
 
-setBool : (Field.Value Bool -> field) -> Bool -> Transaction field 
-setBool = 
+
+setBool : (Field.Value Bool -> field) -> Bool -> Transaction field
+setBool =
     T_BOOL
 
 
