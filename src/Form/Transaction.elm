@@ -11,6 +11,7 @@ module Form.Transaction exposing
     , setAtIndex
     , setNested
     , setString
+    , setBool
     )
 
 import Form.Field as Field
@@ -25,6 +26,7 @@ import Index.UniqueIndexDict as UniqueIndexDict
 
 type Transaction field
     = T_STR (Field.Value String -> field) String
+    | T_BOOL (Field.Value Bool -> field) Bool 
     | T_ADDROW field (UniqueIndex -> Transaction field)
     | T_SETINLIST field UniqueIndex (Transaction field)
     | T_REMOVEROW field UniqueIndex
@@ -41,8 +43,12 @@ batch =
 
 
 setString : (Field.Value String -> field) -> String -> Transaction field
-setString fieldF =
-    T_STR fieldF
+setString =
+    T_STR
+
+setBool : (Field.Value Bool -> field) -> Bool -> Transaction field 
+setBool = 
+    T_BOOL
 
 
 addRow : (Field.List x -> field) -> Transaction x -> Transaction field
@@ -70,6 +76,9 @@ map mapF transaction =
     case transaction of
         T_STR f s ->
             T_STR (f >> mapF) s
+
+        T_BOOL f b ->
+            T_BOOL (f >> mapF) b
 
         T_ADDROW f ut ->
             T_ADDROW (mapF f) (\uIdx -> ut uIdx |> map mapF)
@@ -109,6 +118,21 @@ saveHelper transaction form =
 
                         Just state ->
                             newForm.values |> FieldIndexDict.set fieldIndex { state | value = Form.FieldState.stringValue string }
+            in
+            ( { newForm | values = newValues }, [ fieldIndex ] )
+
+        T_BOOL fieldF bool ->
+            let
+                ( newForm, fieldIndex ) =
+                    getFieldIndex (fieldF Field.Value) form
+
+                newValues =
+                    case newForm.values |> FieldIndexDict.get fieldIndex of
+                        Nothing ->
+                            newForm.values |> FieldIndexDict.set fieldIndex { value = Form.FieldState.boolValue bool, error = Nothing }
+
+                        Just state ->
+                            newForm.values |> FieldIndexDict.set fieldIndex { state | value = Form.FieldState.boolValue bool }
             in
             ( { newForm | values = newValues }, [ fieldIndex ] )
 

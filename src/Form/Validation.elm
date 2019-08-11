@@ -40,6 +40,7 @@ type Validation error field output
 
 type ValidationAction error field output
     = VA_STR field (Get.Result String -> Validation error field output)
+    | VA_BOOL field (Get.Result Bool -> Validation error field output)
     | VA_LIST field (List UniqueIndex -> Validation error field output)
     | VA_LAZY (() -> Validation error field output)
 
@@ -106,12 +107,12 @@ required submitted f gr =
 
 
 fromString : (Field.Value String -> field) -> (Get.Result String -> Result error output) -> Validation error field output
-fromString fieldF strVal =
+fromString fieldF parseFunction =
     V_ACTION <|
         VA_STR
             (fieldF Field.Value)
             (\s ->
-                case strVal s of
+                case parseFunction s of
                     Err error ->
                         failure fieldF error
 
@@ -119,6 +120,19 @@ fromString fieldF strVal =
                         succeed v
             )
 
+fromBool : (Field.Value Bool -> field) -> (Get.Result Bool -> Result error output) -> Validation error field output 
+fromBool fieldF parseFunction =
+    V_ACTION <|
+        VA_BOOL
+            (fieldF Field.Value)
+            (\b ->
+                case parseFunction b of
+                    Err error ->
+                        failure fieldF error
+
+                    Ok v ->
+                        succeed v
+            )
 
 fromNested : (Field.Nested x -> field) -> Validation error x output -> Validation error field output
 fromNested fieldNF validation =
@@ -141,6 +155,9 @@ mapField mapF validation =
                     VA_STR f1 cont ->
                         VA_STR (f1 |> mapF) (\s -> cont s |> mapField mapF)
 
+                    VA_BOOL f1 cont -> 
+                        VA_BOOL (f1 |> mapF) (\s -> cont s |> mapField mapF)
+
                     VA_LIST fl fi ->
                         VA_LIST (fl |> mapF) (\uidxs -> fi uidxs |> mapField mapF)
 
@@ -162,6 +179,9 @@ mapVAVs f validationAction =
     case validationAction of
         VA_STR f1 cont ->
             VA_STR f1 (cont >> f)
+
+        VA_BOOL f1 cont ->
+            VA_BOOL f1 (cont >> f)
 
         VA_LIST fl fi ->
             VA_LIST fl (fi >> f)
@@ -309,6 +329,14 @@ resolve form validation =
                             Get.getString (Get.field (\_ -> field_)) form
                     in
                     resolve form <| cont stringValue
+
+
+                VA_BOOL field_ cont ->
+                    let
+                        boolValue =
+                            Get.getBool (Get.field (\_ -> field_)) form
+                    in
+                    resolve form <| cont boolValue
 
                 VA_LIST fl contI ->
                     let

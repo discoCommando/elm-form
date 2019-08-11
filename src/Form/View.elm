@@ -27,6 +27,7 @@ import Index.UniqueIndex exposing (UniqueIndex)
 
 type View error field msg
     = VI_STRING (Field.Value String -> field) (String -> Maybe error -> Html msg)
+    | VI_BOOL (Field.Value Bool -> field) (Bool -> Maybe error -> Html msg)
     | VI_HTML (Html msg)
     | VI_VIEW String (List (Html.Attribute msg)) (List (View error field msg))
     | VI_REMOVELASTROW field (Maybe UniqueIndex -> Html msg)
@@ -39,6 +40,9 @@ nested fieldF view =
     case view of
         VI_STRING field f ->
             VI_STRING (fieldF << Field.WithValue << field) (\s me -> f s me |> Html.map (mapMsg <| (fieldF << Field.WithValue)))
+
+        VI_BOOL field f ->
+            VI_BOOL (fieldF << Field.WithValue << field) (\s me -> f s me |> Html.map (mapMsg <| (fieldF << Field.WithValue)))
 
         VI_VIEW nodeName attrs views ->
             VI_VIEW nodeName (attrs |> List.map (Html.Attributes.map (mapMsg <| (fieldF << Field.WithValue)))) (views |> List.map (nested fieldF))
@@ -62,6 +66,9 @@ inIndex uniqueIndex fieldF view =
         VI_STRING field f ->
             VI_STRING (fieldF << Field.WithIndex uniqueIndex << field) (\s me -> f s me |> Html.map (mapMsg (fieldF << Field.WithIndex uniqueIndex)))
 
+        VI_BOOL field f ->
+            VI_BOOL (fieldF << Field.WithIndex uniqueIndex << field) (\s me -> f s me |> Html.map (mapMsg (fieldF << Field.WithIndex uniqueIndex)))
+
         VI_VIEW nodeName attrs views ->
             VI_VIEW nodeName (attrs |> List.map (Html.Attributes.map (mapMsg (fieldF << Field.WithIndex uniqueIndex)))) (views |> List.map (inIndex uniqueIndex fieldF))
 
@@ -83,6 +90,9 @@ inForm form view =
     case view of
         VI_STRING field f ->
             f (form |> Get.getString (Get.field field) |> Get.toMaybe |> Maybe.withDefault "") (form |> Get.getError (Get.field field))
+
+        VI_BOOL field f ->
+            f (form |> Get.getBool (Get.field field) |> Get.toMaybe |> Maybe.withDefault False) (form |> Get.getError (Get.field field))
 
         VI_VIEW nodeName attrs views ->
             Html.node nodeName attrs (views |> List.map (inForm form))
@@ -112,6 +122,10 @@ mapMsg f (FormMsg t) =
 stringInput : (Field.Value String -> field) -> ((String -> FormMsg field) -> String -> Maybe error -> Html msg) -> View error field msg
 stringInput field f =
     VI_STRING field (f (Form.Transaction.setString field >> FormMsg))
+
+boolInput : (Field.Value Bool -> field) ->  ((Bool -> FormMsg field) -> Bool -> Maybe error -> Html msg) -> View error field msg
+boolInput field f =
+    VI_BOOL field (f (Form.Transaction.setBool field >> FormMsg))
 
 
 node : String -> List (Attribute msg) -> List (View error field msg) -> View error field msg

@@ -1,4 +1,4 @@
-module Form.Get exposing (atList, field, getError, getHelper, getString, indexes, nested, Result(..), toMaybe)
+module Form.Get exposing (atList, field, getError, getHelper, getString, indexes, nested, Result(..), toMaybe, getBool)
 
 import Form.Field as Field
 import Form.FieldState exposing (FieldState)
@@ -45,6 +45,22 @@ getString =
 
                         _ ->
                             ""
+
+getBool : Get field Bool -> Form error field output validation -> Result Bool 
+getBool = 
+    getHelper <|
+        \mFieldState ->
+            case mFieldState of
+                Nothing ->
+                    NotEdited
+
+                Just fieldState ->
+                    Edited <| case fieldState.value of
+                        Form.FieldState.FVBool b ->
+                            b
+
+                        _ ->
+                            False
 
 
 getError : Get field a -> Form error field output validation -> Maybe error
