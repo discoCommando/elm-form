@@ -13,11 +13,13 @@ module Form.Validation exposing
     , map
     , mapField
     , optional
-    , string
+    , anyString
+    , nonEmptyString
     , succeed
     , validate_
     , andMapDiscard
     , mapError
+    , required
     )
 
 import Form.Field as Field
@@ -28,6 +30,7 @@ import Form.Type
 import Index.FieldIndex as FieldIndex
 import Index.FieldIndexDict as FieldIndexDict
 import Index.UniqueIndex exposing (UniqueIndex)
+import Form.CommonError exposing (CommonError(..))
 
 
 type Validation error field output
@@ -39,7 +42,6 @@ type ValidationAction error field output
     = VA_STR field (Get.Result String -> Validation error field output)
     | VA_LIST field (List UniqueIndex -> Validation error field output)
     | VA_LAZY (() -> Validation error field output)
-
 
 type alias FailCell error =
     { error : Maybe error }
@@ -62,19 +64,18 @@ type alias Form error field output =
     Form.Type.Form error field output (Validation error field output)
 
 
-string : Get.Result String -> Result () String
-string gs =
-    case gs of 
-        Get.Edited s -> 
-            case s of
-                "" ->
-                    Err ()
+anyString : String -> Result x String
+anyString s =
+    Ok s
 
-                ss ->
-                    Ok ss
+nonEmptyString : String -> Result CommonError String 
+nonEmptyString s =
+    case s of 
+        "" -> 
+            Err NotFound 
 
-        Get.NotEdited -> 
-            Err ()
+        _ -> 
+            Ok s 
 
 
 int : String -> Result () Int
@@ -90,6 +91,18 @@ optional f gr =
 
         Get.Edited s ->
             f s |> Result.map Just
+
+required : Bool -> (a -> Result CommonError output) -> (Get.Result a -> Result CommonError output)
+required submitted f gr = 
+    case gr of 
+        Get.NotEdited -> 
+            if submitted then 
+                Err NotFound
+            else 
+                Err NotEditedYet 
+
+        Get.Edited a -> 
+            f a
 
 
 fromString : (Field.Value String -> field) -> (Get.Result String -> Result error output) -> Validation error field output

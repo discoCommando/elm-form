@@ -1,9 +1,10 @@
-module ComplexForm exposing (Email(..), Field(..), Form, Password(..), Plan(..), UserDetails, emailValidation, parsePassword, validation)
+module ComplexForm exposing (..)
 
 import Form
 import Form.Field as Field
-import Form.Validation exposing (andMap, andThen, failure, fromString, map, optional, string, succeed, andMapDiscard, mapError)
-
+import Form.Validation exposing (andMap, 
+    andThen, failure, fromString, map, optional, anyString, nonEmptyString ,succeed, andMapDiscard, mapError, required)
+import Form.CommonError as CommonError exposing (CommonError(..)) 
 
 type Plan
     = Basic
@@ -37,16 +38,19 @@ type alias UserDetails =
 
 
 type alias Form =
-    Form.Form String Field UserDetails
+    Form.Form CommonError Field UserDetails
+
+type alias Validation output =
+    Form.Validation CommonError Field output 
 
 
-emailValidation : String -> Result String Email
-emailValidation s =
+parseEmail : String -> Result CommonError Email
+parseEmail s =
     if String.contains "@" s then
         Ok <| Email_ s
 
     else
-        Err "Invalid email"
+        Err <| CommonError.custom "Invalid email"
 
 
 parsePassword s =
@@ -54,7 +58,7 @@ parsePassword s =
         Ok <| Password_ s
 
     else
-        Err "Password must be at least 6 characters"
+        Err <| CommonError.custom "Password must be at least 6 characters"
 
 parsePlan s =
     case s of
@@ -68,29 +72,29 @@ parsePlan s =
             Ok Enterprise
 
         _ ->
-            Err "Invalid plan"
+            Err <| CommonError.custom "Invalid plan"
 
-passwordValidation : Form.Validation String Field Password 
+passwordValidation : Validation Password 
 passwordValidation =
     succeed (\a b -> (a,b)) 
-        |> andMap (fromString Password parsePassword)
-        |> andMap (fromString RepeatPassword string)
+        |> andMap (fromString Password <| required True parsePassword)
+        |> andMap (fromString RepeatPassword <| required True anyString)
         |> andThen (\(Password_ p, rp) -> 
                 if p == rp then 
                     Password_ p |> succeed 
                 else 
-                    failure RepeatPassword "The passwords must match"
+                    failure RepeatPassword <| CommonError.custom "The passwords must match"
             )
 
 
-validation : Form.Validation String Field UserDetails
+validation : Validation UserDetails
 validation =
     succeed UserDetails
-        |> andMap (fromString Name (string |> optional) |> mapError (\_ -> ""))
-        |> andMap (fromString Email emailValidation)
+        |> andMap (fromString Name <| optional anyString)
+        |> andMap (fromString Email <| required True parseEmail)
         |> andMap passwordValidation
-        |> andMapDiscard (fromString AgreedToTerms (string >> Result.map (\s -> s == "1")) |> mapError (\_ -> "No value"))
-        |> andMap (fromString Plan parsePlan)
+        |> andMapDiscard (fromString AgreedToTerms <| required True (anyString >> Result.map (\s -> s == "1")))
+        |> andMap (fromString Plan <| required True parsePlan)
 
 form : Form 
 form = Form.form validation 
