@@ -1,6 +1,5 @@
 module Form.Validation exposing
     ( Form
-    , Submitted(..)
     , Validation
     , andMap
     , andMapDiscard
@@ -12,7 +11,6 @@ module Form.Validation exposing
     , fromNested
     , fromString
     , int
-    , isSubmitted
     , isTrue
     , lazy
     , makeList
@@ -40,12 +38,12 @@ import Index.UniqueIndex exposing (UniqueIndex)
 
 -- few states
 -- field not edited
--- form not submitted
--- form submitted
+-- form not submitted -> no error 
+-- form submitted -> show error 
+
 -- field edited
 -- form submitted
 -- form not submitted
--- validation happens after onblur
 
 
 type Validation error field output
@@ -59,10 +57,6 @@ type ValidationAction error field output
     | VA_LIST field (List UniqueIndex -> Validation error field output)
     | VA_LAZY (() -> Validation error field output)
 
-
-type Submitted
-    = Submitted
-    | NotSubmitted
 
 
 type alias FailCell error =
@@ -82,8 +76,8 @@ type ValidationResult error field output
     | VR_SUCCESS (SuccessState output)
 
 
-type alias Form error field output =
-    Form.Type.Form error field output (Validation error field output)
+type alias Form error field output submitted =
+    Form.Type.Form error field output (Validation error field output) submitted
 
 
 anyString : String -> Result x String
@@ -95,7 +89,7 @@ nonEmptyString : String -> Result CommonError String
 nonEmptyString s =
     case s of
         "" ->
-            Err NotFound
+            Err NoInput
 
         _ ->
             Ok s
@@ -116,16 +110,11 @@ optional f gr =
             f s |> Result.map Just
 
 
-required : Submitted -> (a -> Result CommonError output) -> (Get.Result a -> Result CommonError output)
-required submitted f gr =
+required : (a -> Result CommonError output) -> (Get.Result a -> Result CommonError output)
+required f gr =
     case gr of
         Get.NotEdited ->
-            case submitted of
-                Submitted ->
-                    Err NotFound
-
-                NotSubmitted ->
-                    Err NotEditedYet
+            Err NoInput
 
         Get.Edited a ->
             f a
@@ -161,39 +150,34 @@ fromBool fieldF parseFunction =
             )
 
 
-isSubmitted : (Field.Value Bool -> field) -> Validation error field Submitted
-isSubmitted fieldF =
-    fromBool
-        fieldF
-        (\rb ->
-            case rb of
-                Get.Edited True ->
-                    Ok Submitted
+--isSubmitted : (Field.Value Bool -> field) -> Validation error field Submitted
+--isSubmitted fieldF =
+--    fromBool
+--        fieldF
+--        (\rb ->
+--            case rb of
+--                Get.Edited True ->
+--                    Ok Submitted
 
-                _ ->
-                    Ok NotSubmitted
-        )
+--                _ ->
+--                    Ok NotSubmitted
+--        )
 
 
-isTrue : (Field.Value Bool -> field) -> Submitted -> Validation CommonError field ()
-isTrue fieldF submitted =
+isTrue : (Field.Value Bool -> field) -> Validation CommonError field ()
+isTrue fieldF =
     fromBool fieldF
         (\rb ->
             case rb of
                 Get.NotEdited ->
-                    case submitted of
-                        Submitted ->
-                            Err NotFound
-
-                        NotSubmitted ->
-                            Err NotEditedYet
+                    Err NoInput
 
                 Get.Edited b ->
                     if b then
                         Ok ()
 
                     else
-                        Err NotFound
+                        Err NoInput
         )
 
 
@@ -382,7 +366,7 @@ lazy =
     V_ACTION << VA_LAZY
 
 
-resolve : Form error field output -> Validation error field output -> ValidationResult error field output
+resolve : Form error field output submitted -> Validation error field output -> ValidationResult error field output
 resolve form validation =
     case validation of
         V_ACTION va ->
@@ -417,7 +401,7 @@ resolve form validation =
             vr
 
 
-validate_ : Form error field output -> Form error field output
+validate_ : Form error field output submitted -> Form error field output submitted
 validate_ form =
     let
         validationResult =
@@ -434,12 +418,12 @@ validate_ form =
             { clearedForm | output = Nothing } |> setErrors (errors |> Map.toList)
 
 
-clearErrors : Form error field output -> Form error field output
+clearErrors : Form error field output submitted -> Form error field output submitted
 clearErrors form =
     { form | values = form.values |> FieldIndexDict.map (\state -> { state | error = Nothing }) }
 
 
-setErrors : List ( field, FailCell error ) -> Form error field output -> Form error field output
+setErrors : List ( field, FailCell error ) -> Form error field output submitted -> Form error field output submitted
 setErrors errors form =
     case errors of
         [] ->

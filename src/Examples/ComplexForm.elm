@@ -1,4 +1,4 @@
-module ComplexForm exposing (Email(..), Field(..), Form, Password(..), Plan(..), UserDetails, Validation, form, parseEmail, parsePassword, parsePlan, passwordValidation, validation)
+module ComplexForm exposing (..)
 
 import Form
 import Form.CommonError as CommonError exposing (CommonError(..))
@@ -12,7 +12,6 @@ import Form.Validation
         , failure
         , fromBool
         , fromString
-        , isSubmitted
         , isTrue
         , map
         , mapError
@@ -21,7 +20,12 @@ import Form.Validation
         , required
         , succeed
         )
-
+import Form.View exposing (Submitted(..))
+import Form.Get as Get
+import Html exposing (Html, text, span, input, button, p, div)
+import Html.Attributes exposing (type_, selected, checked, value)
+import Html.Events exposing (onInput, onCheck, onClick)
+import Browser
 
 type Plan
     = Basic
@@ -44,7 +48,6 @@ type Field
     | RepeatPassword (Field.Value String)
     | Plan (Field.Value String)
     | AgreedToTerms (Field.Value Bool)
-    | Submitted (Field.Value Bool)
 
 
 type alias UserDetails =
@@ -95,11 +98,11 @@ parsePlan s =
             Err <| CommonError.custom "Invalid plan"
 
 
-passwordValidation : Form.Validation.Submitted -> Validation Password
-passwordValidation submitted =
+passwordValidation : Validation Password
+passwordValidation  =
     succeed (\a b -> ( a, b ))
-        |> andMap (fromString Password <| required submitted parsePassword)
-        |> andMap (fromString RepeatPassword <| required submitted anyString)
+        |> andMap (fromString Password <| required parsePassword)
+        |> andMap (fromString RepeatPassword <| required anyString)
         |> andThen
             (\( Password_ p, rp ) ->
                 if p == rp then
@@ -112,25 +115,137 @@ passwordValidation submitted =
 
 validation : Validation UserDetails
 validation =
-    isSubmitted Submitted
-        |> andThen
-            (\submitted ->
-                succeed UserDetails
-                    |> andMap (fromString Name <| optional anyString)
-                    |> andMap (fromString Email <| required submitted parseEmail)
-                    |> andMap (passwordValidation submitted)
-                    |> andMapDiscard (isTrue AgreedToTerms submitted)
-                    |> andMap (fromString Plan <| required submitted parsePlan)
-            )
+    succeed UserDetails
+        |> andMap (fromString Name <| optional anyString)
+        |> andMap (fromString Email <| required parseEmail)
+        |> andMap passwordValidation
+        |> andMapDiscard (isTrue AgreedToTerms)
+        |> andMap (fromString Plan <| required parsePlan)
+    
+
+--view 
+errorText : Get.Result a -> Maybe CommonError -> Submitted -> Html msg 
+errorText gr me formSubmitted = 
+    case me of 
+        Nothing -> 
+            text ""
+
+        Just e -> 
+            let 
+                errorT = 
+                    case e of 
+                        CommonError.NoInput -> 
+                            "Field is required"
+
+                        CommonError.Custom s -> 
+                            s 
+            in
+            case gr of 
+                Get.NotEdited -> 
+                    case formSubmitted of 
+                        Form.View.Submitted -> 
+                            text errorT
+
+                        Form.View.NotSubmitted -> 
+                            text "" 
+
+                Get.Edited _ -> 
+                    text errorT
 
 
-form : Form
-form =
-    Form.form validation
+textInput : (Field.Value String -> field) -> String -> Submitted -> Form.View CommonError field (Form.View.FormMsg field)
+textInput fieldF label formSubmitted =
+    Form.View.stringInput fieldF
+        (\onInputMsg gStr error ->
+            let 
+                str = gStr |> Get.toMaybe |> Maybe.withDefault ""
+            in
+            p
+                []
+                [ text label, input [ onInput onInputMsg, value str ] []
+                , errorText gStr error formSubmitted
+                ]
+        )
+
+checkbox : (Field.Value Bool -> field) -> String -> Form.Submitted -> Form.View CommonError field (Form.View.FormMsg field)
+checkbox fieldF label formSubmitted = 
+    Form.View.boolInput fieldF
+        (\onInputMsg gBool error ->
+            let 
+                bool = gBool |> Get.toMaybe |> Maybe.withDefault False
+            in
+            p
+                []
+                [ text label, input [ onCheck onInputMsg, type_ "checkbox", checked bool ] []
+                , errorText gBool error formSubmitted
+                ]
+        )
+
+select : (Field.Value String -> field) -> String -> List String -> Form.Submitted -> Form.View CommonError field (Form.View.FormMsg field)
+select fieldF label values formSubmitted  = 
+    Form.View.stringInput fieldF 
+        (\onInputMsg gStr error ->
+            let 
+                str = gStr |> Get.toMaybe |> Maybe.withDefault ""
+
+                entry v = 
+                    Html.option [ value v, selected (str == v) ] [ text v ]
+
+                entries = 
+                    List.map entry values 
+
+                options =
+                    (Html.option [ ] [ text "Choose plan" ]) :: entries
+            in
+            p
+                []
+                [ text label, Html.select [ onInput onInputMsg ] options
+                , errorText gStr error formSubmitted
+                ]
+        )
+
+submitButton : Form.View error field (Form.View.FormMsg field)
+submitButton = Form.View.submit (\msg -> 
+    button [ onClick msg ] [ text "Submit" ]) 
 
 
+formView : Form.Submitted -> Form.View CommonError Field (Form.View.FormMsg Field)
+formView formSubmitted = 
+    Form.View.div 
+        [] 
+        [ textInput Name "Name" formSubmitted
+        , textInput Email "Email" formSubmitted
+        , textInput Password "Password" formSubmitted
+        , textInput RepeatPassword "Repeat password" formSubmitted
+        , select Plan "Choose a plan" ["Basic", "Pro", "Enterprise", "Weird"] formSubmitted 
+        , checkbox AgreedToTerms "I agree to terms and conditions" formSubmitted
+        , submitButton
+        ]
 
--- validate on blur
--- add bools
--- add isTrue for submitted
--- add required that takes boolean (is submitted)
+type alias Model = { form : Form }
+
+view : Model -> Html Msg 
+view { form } = 
+    div [] [ 
+        Form.View.inForm form (formView form.submitted) |> Html.map Msg
+        , p [] [text <| Debug.toString form.output] ]
+
+type Msg = 
+    Msg (Form.View.FormMsg Field)
+
+update : Msg -> Model -> Model 
+update (Msg msg) { form } = 
+    { form = form |> Form.View.update msg }
+
+init : Form 
+init = Form.form validation
+
+main : Program () Model Msg
+main =
+    Browser.sandbox
+        { init = { form = init }
+        , view = view
+        , update = update
+        }
+
+

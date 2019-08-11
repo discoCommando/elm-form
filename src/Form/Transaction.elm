@@ -33,8 +33,8 @@ type Transaction field
     | T_BATCH (List (Transaction field))
 
 
-type alias Form error field output =
-    Form.Validation.Form error field output
+type alias Form error field output submitted =
+    Form.Validation.Form error field output submitted 
 
 
 batch : List (Transaction field) -> Transaction field
@@ -94,7 +94,7 @@ map mapF transaction =
             T_SETINLIST (mapF listFieldOpaque) uniqueIndex (map mapF transaction_)
 
 
-save : Transaction field -> Form error field output -> Form error field output
+save : Transaction field -> Form error field output submitted -> Form error field output submitted
 save transaction form =
     form |> saveHelper transaction |> Tuple.first |> Form.Validation.validate_
 
@@ -104,7 +104,7 @@ empty =
     batch []
 
 
-saveHelper : Transaction field -> Form error field output -> ( Form error field output, List FieldIndex )
+saveHelper : Transaction field -> Form error field output submitted -> ( Form error field output submitted, List FieldIndex )
 saveHelper transaction form =
     case transaction of
         T_STR fieldF string ->
@@ -234,7 +234,7 @@ saveHelper transaction form =
                     ( form, [] )
 
 
-removeRowHelper : List FieldIndex -> Form error field output -> Form error field output
+removeRowHelper : List FieldIndex -> Form error field output submitted -> Form error field output submitted
 removeRowHelper states form =
     case states of
         [] ->
@@ -256,7 +256,7 @@ removeRowHelper states form =
             removeRowHelper newRest { form | values = newValues, listIndexes = form.listIndexes |> FieldIndexDict.remove fieldIndex }
 
 
-getFieldIndex : field -> Form error field output -> ( Form error field output, FieldIndex )
+getFieldIndex : field -> Form error field output submitted -> ( Form error field output submitted, FieldIndex )
 getFieldIndex field_ form_ =
     case form_.fieldIndexes |> Map.get field_ of
         Nothing ->

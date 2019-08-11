@@ -33,7 +33,7 @@ field =
     Get
 
 
-getString : Get field String -> Form error field output validation -> Result String
+getString : Get field String -> Form error field output validation submitted -> Result String
 getString =
     getHelper <|
         \mFieldState ->
@@ -51,7 +51,7 @@ getString =
                                 ""
 
 
-getBool : Get field Bool -> Form error field output validation -> Result Bool
+getBool : Get field Bool -> Form error field output validation submitted -> Result Bool
 getBool =
     getHelper <|
         \mFieldState ->
@@ -69,14 +69,14 @@ getBool =
                                 False
 
 
-getError : Get field a -> Form error field output validation -> Maybe error
+getError : Get field a -> Form error field output validation submitted -> Maybe error
 getError =
     getHelper <|
         \mFieldState ->
             mFieldState |> Maybe.andThen .error
 
 
-getHelper : (Maybe (FieldState error) -> x) -> Get field a -> Form error field output validation -> x
+getHelper : (Maybe (FieldState error) -> x) -> Get field a -> Form error field output validation submitted -> x
 getHelper f (Get fieldF) form_ =
     case form_.fieldIndexes |> Map.get (fieldF Field.Value) of
         Nothing ->
@@ -96,7 +96,7 @@ atList fieldList uniqueIndex (Get nestedF) =
     Get (\field_ -> fieldList <| Field.WithIndex uniqueIndex <| nestedF field_)
 
 
-indexes : (Field.List x -> field) -> Form error field output validation -> List UniqueIndex
+indexes : (Field.List x -> field) -> Form error field output validation submitted -> List UniqueIndex
 indexes fieldF form_ =
     case form_.fieldIndexes |> Map.get (fieldF Field.OpaqueList) of
         Nothing ->

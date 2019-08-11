@@ -12,28 +12,37 @@ module Form.View exposing
     , removeLastRow
     , removeRow
     , stringInput
+    , boolInput
     , update
+    , submit
+    , Form
+    , Submitted(..)
     )
 
 import Form.Field as Field
 import Form.Get as Get
 import Form.Transaction exposing (Transaction)
-import Form.Validation exposing (Form)
+import Form.Validation
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Index.UniqueIndex exposing (UniqueIndex)
 
-
 type View error field msg
-    = VI_STRING (Field.Value String -> field) (String -> Maybe error -> Html msg)
-    | VI_BOOL (Field.Value Bool -> field) (Bool -> Maybe error -> Html msg)
+    = VI_STRING (Field.Value String -> field) (Get.Result String -> Maybe error -> Html msg)
+    | VI_BOOL (Field.Value Bool -> field) (Get.Result Bool -> Maybe error -> Html msg)
     | VI_HTML (Html msg)
     | VI_VIEW String (List (Html.Attribute msg)) (List (View error field msg))
     | VI_REMOVELASTROW field (Maybe UniqueIndex -> Html msg)
     | VI_INLIST field (List UniqueIndex -> View error field msg)
     | VI_LAZY (() -> View error field msg)
 
+
+type Submitted
+    = Submitted
+    | NotSubmitted
+
+type alias Form error field output = Form.Validation.Form error field output Submitted
 
 nested : (Field.Nested field1 -> field2) -> View error field1 (FormMsg field1) -> View error field2 (FormMsg field2)
 nested fieldF view =
@@ -89,10 +98,10 @@ inForm : Form error field output -> View error field msg -> Html msg
 inForm form view =
     case view of
         VI_STRING field f ->
-            f (form |> Get.getString (Get.field field) |> Get.toMaybe |> Maybe.withDefault "") (form |> Get.getError (Get.field field))
+            f (form |> Get.getString (Get.field field)) (form |> Get.getError (Get.field field))
 
         VI_BOOL field f ->
-            f (form |> Get.getBool (Get.field field) |> Get.toMaybe |> Maybe.withDefault False) (form |> Get.getError (Get.field field))
+            f (form |> Get.getBool (Get.field field)) (form |> Get.getError (Get.field field))
 
         VI_VIEW nodeName attrs views ->
             Html.node nodeName attrs (views |> List.map (inForm form))
@@ -111,23 +120,31 @@ inForm form view =
 
 
 type FormMsg field
-    = FormMsg (Transaction field)
-
+    = TransactionMsg (Transaction field)
+    | SubmitMsg
 
 mapMsg : (field1 -> field2) -> FormMsg field1 -> FormMsg field2
-mapMsg f (FormMsg t) =
-    FormMsg (Form.Transaction.map f t)
+mapMsg f msg =
+    case msg of 
+        TransactionMsg t -> 
+            TransactionMsg (Form.Transaction.map f t)
+
+        SubmitMsg -> 
+            SubmitMsg
 
 
-stringInput : (Field.Value String -> field) -> ((String -> FormMsg field) -> String -> Maybe error -> Html msg) -> View error field msg
+stringInput : (Field.Value String -> field) -> ((String -> FormMsg field) -> Get.Result String -> Maybe error -> Html msg) -> View error field msg
 stringInput field f =
-    VI_STRING field (f (Form.Transaction.setString field >> FormMsg))
+    VI_STRING field (f (Form.Transaction.setString field >> TransactionMsg))
 
 
-boolInput : (Field.Value Bool -> field) -> ((Bool -> FormMsg field) -> Bool -> Maybe error -> Html msg) -> View error field msg
+boolInput : (Field.Value Bool -> field) -> ((Bool -> FormMsg field) -> Get.Result Bool -> Maybe error -> Html msg) -> View error field msg
 boolInput field f =
-    VI_BOOL field (f (Form.Transaction.setBool field >> FormMsg))
+    VI_BOOL field (f (Form.Transaction.setBool field >> TransactionMsg))
 
+submit : (FormMsg field -> Html msg) -> View error field msg
+submit f = 
+    VI_HTML <| f SubmitMsg
 
 node : String -> List (Attribute msg) -> List (View error field msg) -> View error field msg
 node nodeName attrs views =
@@ -141,17 +158,17 @@ div =
 
 addRow : (Field.List field2 -> field1) -> (FormMsg field1 -> Html msg) -> View error field1 msg
 addRow fieldListF viewF =
-    VI_HTML (viewF (FormMsg (Form.Transaction.addRow fieldListF Form.Transaction.empty)))
+    VI_HTML (viewF (TransactionMsg (Form.Transaction.addRow fieldListF Form.Transaction.empty)))
 
 
 removeRow : (Field.List field2 -> field1) -> UniqueIndex -> (FormMsg field1 -> Html msg) -> View error field1 msg
 removeRow fieldListF uniqueIndex viewF =
-    VI_HTML (viewF (FormMsg (Form.Transaction.removeRow fieldListF uniqueIndex)))
+    VI_HTML (viewF (TransactionMsg (Form.Transaction.removeRow fieldListF uniqueIndex)))
 
 
 removeLastRow : (Field.List field2 -> field1) -> (Maybe (FormMsg field1) -> Html msg) -> View error field1 msg
 removeLastRow fieldListF f =
-    VI_REMOVELASTROW (fieldListF Field.OpaqueList) (\muid -> f (muid |> Maybe.map (\uid -> FormMsg (Form.Transaction.removeRow fieldListF uid))))
+    VI_REMOVELASTROW (fieldListF Field.OpaqueList) (\muid -> f (muid |> Maybe.map (\uid -> TransactionMsg (Form.Transaction.removeRow fieldListF uid))))
 
 
 inList : (Field.List field2 -> field1) -> (List UniqueIndex -> View error field1 msg) -> View error field1 msg
@@ -162,5 +179,8 @@ inList fieldListF f =
 update : FormMsg field -> Form error field output -> Form error field output
 update msg form =
     case msg of
-        FormMsg transaction ->
+        TransactionMsg transaction ->
             form |> Form.Transaction.save transaction
+
+        SubmitMsg -> 
+            { form | submitted = Submitted }

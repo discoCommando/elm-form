@@ -2,8 +2,7 @@ module Form.CommonError exposing (CommonError(..), custom)
 
 
 type CommonError
-    = NotFound
-    | NotEditedYet
+    = NoInput
     | Custom String
 
 

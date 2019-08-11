@@ -3,6 +3,7 @@ module Form exposing
     , Validation
     , View
     , form
+    , Submitted
     , getOutput
     , validate
     )
@@ -15,6 +16,7 @@ import Form.FieldState exposing (FieldState)
 import Form.Map as Map exposing (Map)
 import Form.Validation exposing (Validation, validate_)
 import Form.View
+import Form.Type
 import Html exposing (Html)
 import Index.FieldIndex as FieldIndex exposing (FieldIndex)
 import Index.FieldIndexDict as FieldIndexDict
@@ -30,7 +32,9 @@ type alias Validation error field output =
 
 
 type alias Form field error output =
-    Form.Validation.Form field error output
+    Form.View.Form field error output
+
+type alias Submitted = Form.View.Submitted
 
 
 form : Validation field error output -> Form field error output
@@ -38,7 +42,7 @@ form validation =
     { fieldIndexes = Map.empty
     , listIndexes = FieldIndexDict.empty
     , values = FieldIndexDict.empty
-    , submitted = False
+    , submitted = Form.View.NotSubmitted
     , validation = validation
     , output = Nothing
     , fieldIndexToUse = FieldIndex.create
