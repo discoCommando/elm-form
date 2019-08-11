@@ -1,7 +1,10 @@
 module Form.View exposing
-    ( FormMsg(..)
+    ( Form
+    , FormMsg(..)
+    , Submitted(..)
     , View
     , addRow
+    , boolInput
     , div
     , inForm
     , inIndex
@@ -12,11 +15,8 @@ module Form.View exposing
     , removeLastRow
     , removeRow
     , stringInput
-    , boolInput
-    , update
     , submit
-    , Form
-    , Submitted(..)
+    , update
     )
 
 import Form.Field as Field
@@ -27,6 +27,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Index.UniqueIndex exposing (UniqueIndex)
+
 
 type View error field msg
     = VI_STRING (Field.Value String -> field) (Get.Result String -> Maybe error -> Html msg)
@@ -42,7 +43,10 @@ type Submitted
     = Submitted
     | NotSubmitted
 
-type alias Form error field output = Form.Validation.Form error field output Submitted
+
+type alias Form error field output =
+    Form.Validation.Form error field output Submitted
+
 
 nested : (Field.Nested field1 -> field2) -> View error field1 (FormMsg field1) -> View error field2 (FormMsg field2)
 nested fieldF view =
@@ -123,13 +127,14 @@ type FormMsg field
     = TransactionMsg (Transaction field)
     | SubmitMsg
 
+
 mapMsg : (field1 -> field2) -> FormMsg field1 -> FormMsg field2
 mapMsg f msg =
-    case msg of 
-        TransactionMsg t -> 
+    case msg of
+        TransactionMsg t ->
             TransactionMsg (Form.Transaction.map f t)
 
-        SubmitMsg -> 
+        SubmitMsg ->
             SubmitMsg
 
 
@@ -142,9 +147,11 @@ boolInput : (Field.Value Bool -> field) -> ((Bool -> FormMsg field) -> Get.Resul
 boolInput field f =
     VI_BOOL field (f (Form.Transaction.setBool field >> TransactionMsg))
 
+
 submit : (FormMsg field -> Html msg) -> View error field msg
-submit f = 
+submit f =
     VI_HTML <| f SubmitMsg
+
 
 node : String -> List (Attribute msg) -> List (View error field msg) -> View error field msg
 node nodeName attrs views =
@@ -182,5 +189,5 @@ update msg form =
         TransactionMsg transaction ->
             form |> Form.Transaction.save transaction
 
-        SubmitMsg -> 
+        SubmitMsg ->
             { form | submitted = Submitted }

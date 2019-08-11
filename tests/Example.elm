@@ -3,14 +3,15 @@ module Example exposing (SingleFieldTest(..), SingleFieldTestOutput1, singleFiel
 import Expect exposing (Expectation)
 import Form
 import Form.Transaction
-import Form.Validation exposing (andMap, fromString, string, succeed, int)
+import Form.Validation exposing (andMap, fromString, int, string, succeed)
 import Fuzz exposing (Fuzzer, list)
 import Test exposing (..)
 
--- list of tests to add:
-    -- field not edited should be empty
-    -- add value, check its not empty
 
+
+-- list of tests to add:
+-- field not edited should be empty
+-- add value, check its not empty
 -- Single Field Tests
 
 
@@ -107,10 +108,13 @@ singleFieldTest2 =
         [ fuzz Fuzz.string "Check for errors" <|
             \string ->
                 let
-                    expectedError = 
-                        case String.toInt string of 
-                            Nothing -> Just ()
-                            _ -> Nothing
+                    expectedError =
+                        case String.toInt string of
+                            Nothing ->
+                                Just ()
+
+                            _ ->
+                                Nothing
                 in
                 form string
                     |> Form.getError SimpleTestStringField

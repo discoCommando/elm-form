@@ -1,8 +1,10 @@
-module ComplexForm exposing (..)
+module ComplexForm exposing (Email(..), Field(..), Form, Model, Msg(..), Password(..), Plan(..), UserDetails, Validation, checkbox, errorText, formView, init, main, parseEmail, parsePassword, parsePlan, passwordValidation, select, submitButton, textInput, update, validation, view)
 
+import Browser
 import Form
 import Form.CommonError as CommonError exposing (CommonError(..))
 import Form.Field as Field
+import Form.Get as Get
 import Form.Validation
     exposing
         ( andMap
@@ -21,11 +23,10 @@ import Form.Validation
         , succeed
         )
 import Form.View exposing (Submitted(..))
-import Form.Get as Get
-import Html exposing (Html, text, span, input, button, p, div)
-import Html.Attributes exposing (type_, selected, checked, value)
-import Html.Events exposing (onInput, onCheck, onClick)
-import Browser
+import Html exposing (Html, button, div, input, p, span, text)
+import Html.Attributes exposing (checked, selected, type_, value)
+import Html.Events exposing (onCheck, onClick, onInput)
+
 
 type Plan
     = Basic
@@ -99,7 +100,7 @@ parsePlan s =
 
 
 passwordValidation : Validation Password
-passwordValidation  =
+passwordValidation =
     succeed (\a b -> ( a, b ))
         |> andMap (fromString Password <| required parsePassword)
         |> andMap (fromString RepeatPassword <| required anyString)
@@ -121,35 +122,38 @@ validation =
         |> andMap passwordValidation
         |> andMapDiscard (isTrue AgreedToTerms)
         |> andMap (fromString Plan <| required parsePlan)
-    
 
---view 
-errorText : Get.Result a -> Maybe CommonError -> Submitted -> Html msg 
-errorText gr me formSubmitted = 
-    case me of 
-        Nothing -> 
+
+
+--view
+
+
+errorText : Get.Result a -> Maybe CommonError -> Submitted -> Html msg
+errorText gr me formSubmitted =
+    case me of
+        Nothing ->
             text ""
 
-        Just e -> 
-            let 
-                errorT = 
-                    case e of 
-                        CommonError.NoInput -> 
+        Just e ->
+            let
+                errorT =
+                    case e of
+                        CommonError.NoInput ->
                             "Field is required"
 
-                        CommonError.Custom s -> 
-                            s 
+                        CommonError.Custom s ->
+                            s
             in
-            case gr of 
-                Get.NotEdited -> 
-                    case formSubmitted of 
-                        Form.View.Submitted -> 
+            case gr of
+                Get.NotEdited ->
+                    case formSubmitted of
+                        Form.View.Submitted ->
                             text errorT
 
-                        Form.View.NotSubmitted -> 
-                            text "" 
+                        Form.View.NotSubmitted ->
+                            text ""
 
-                Get.Edited _ -> 
+                Get.Edited _ ->
                     text errorT
 
 
@@ -157,88 +161,109 @@ textInput : (Field.Value String -> field) -> String -> Submitted -> Form.View Co
 textInput fieldF label formSubmitted =
     Form.View.stringInput fieldF
         (\onInputMsg gStr error ->
-            let 
-                str = gStr |> Get.toMaybe |> Maybe.withDefault ""
+            let
+                str =
+                    gStr |> Get.toMaybe |> Maybe.withDefault ""
             in
             p
                 []
-                [ text label, input [ onInput onInputMsg, value str ] []
+                [ text label
+                , input [ onInput onInputMsg, value str ] []
                 , errorText gStr error formSubmitted
                 ]
         )
 
+
 checkbox : (Field.Value Bool -> field) -> String -> Form.Submitted -> Form.View CommonError field (Form.View.FormMsg field)
-checkbox fieldF label formSubmitted = 
+checkbox fieldF label formSubmitted =
     Form.View.boolInput fieldF
         (\onInputMsg gBool error ->
-            let 
-                bool = gBool |> Get.toMaybe |> Maybe.withDefault False
+            let
+                bool =
+                    gBool |> Get.toMaybe |> Maybe.withDefault False
             in
             p
                 []
-                [ text label, input [ onCheck onInputMsg, type_ "checkbox", checked bool ] []
+                [ text label
+                , input [ onCheck onInputMsg, type_ "checkbox", checked bool ] []
                 , errorText gBool error formSubmitted
                 ]
         )
 
-select : (Field.Value String -> field) -> String -> List String -> Form.Submitted -> Form.View CommonError field (Form.View.FormMsg field)
-select fieldF label values formSubmitted  = 
-    Form.View.stringInput fieldF 
-        (\onInputMsg gStr error ->
-            let 
-                str = gStr |> Get.toMaybe |> Maybe.withDefault ""
 
-                entry v = 
+select : (Field.Value String -> field) -> String -> List String -> Form.Submitted -> Form.View CommonError field (Form.View.FormMsg field)
+select fieldF label values formSubmitted =
+    Form.View.stringInput fieldF
+        (\onInputMsg gStr error ->
+            let
+                str =
+                    gStr |> Get.toMaybe |> Maybe.withDefault ""
+
+                entry v =
                     Html.option [ value v, selected (str == v) ] [ text v ]
 
-                entries = 
-                    List.map entry values 
+                entries =
+                    List.map entry values
 
                 options =
-                    (Html.option [ ] [ text "Choose plan" ]) :: entries
+                    Html.option [] [ text "Choose plan" ] :: entries
             in
             p
                 []
-                [ text label, Html.select [ onInput onInputMsg ] options
+                [ text label
+                , Html.select [ onInput onInputMsg ] options
                 , errorText gStr error formSubmitted
                 ]
         )
 
+
 submitButton : Form.View error field (Form.View.FormMsg field)
-submitButton = Form.View.submit (\msg -> 
-    button [ onClick msg ] [ text "Submit" ]) 
+submitButton =
+    Form.View.submit
+        (\msg ->
+            button [ onClick msg ] [ text "Submit" ]
+        )
 
 
 formView : Form.Submitted -> Form.View CommonError Field (Form.View.FormMsg Field)
-formView formSubmitted = 
-    Form.View.div 
-        [] 
+formView formSubmitted =
+    Form.View.div
+        []
         [ textInput Name "Name" formSubmitted
         , textInput Email "Email" formSubmitted
         , textInput Password "Password" formSubmitted
         , textInput RepeatPassword "Repeat password" formSubmitted
-        , select Plan "Choose a plan" ["Basic", "Pro", "Enterprise", "Weird"] formSubmitted 
+        , select Plan "Choose a plan" [ "Basic", "Pro", "Enterprise", "Weird" ] formSubmitted
         , checkbox AgreedToTerms "I agree to terms and conditions" formSubmitted
         , submitButton
         ]
 
-type alias Model = { form : Form }
 
-view : Model -> Html Msg 
-view { form } = 
-    div [] [ 
-        Form.View.inForm form (formView form.submitted) |> Html.map Msg
-        , p [] [text <| Debug.toString form.output] ]
+type alias Model =
+    { form : Form }
 
-type Msg = 
-    Msg (Form.View.FormMsg Field)
 
-update : Msg -> Model -> Model 
-update (Msg msg) { form } = 
+view : Model -> Html Msg
+view { form } =
+    div []
+        [ Form.View.inForm form (formView form.submitted) |> Html.map Msg
+        , p [] [ text <| Debug.toString form.output ]
+        ]
+
+
+type Msg
+    = Msg (Form.View.FormMsg Field)
+
+
+update : Msg -> Model -> Model
+update (Msg msg) { form } =
     { form = form |> Form.View.update msg }
 
-init : Form 
-init = Form.form validation
+
+init : Form
+init =
+    Form.form validation
+
 
 main : Program () Model Msg
 main =
@@ -247,5 +272,3 @@ main =
         , view = view
         , update = update
         }
-
-

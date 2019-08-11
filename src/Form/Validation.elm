@@ -38,9 +38,8 @@ import Index.UniqueIndex exposing (UniqueIndex)
 
 -- few states
 -- field not edited
--- form not submitted -> no error 
--- form submitted -> show error 
-
+-- form not submitted -> no error
+-- form submitted -> show error
 -- field edited
 -- form submitted
 -- form not submitted
@@ -56,7 +55,6 @@ type ValidationAction error field output
     | VA_BOOL field (Get.Result Bool -> Validation error field output)
     | VA_LIST field (List UniqueIndex -> Validation error field output)
     | VA_LAZY (() -> Validation error field output)
-
 
 
 type alias FailCell error =
@@ -150,6 +148,7 @@ fromBool fieldF parseFunction =
             )
 
 
+
 --isSubmitted : (Field.Value Bool -> field) -> Validation error field Submitted
 --isSubmitted fieldF =
 --    fromBool
@@ -158,7 +157,6 @@ fromBool fieldF parseFunction =
 --            case rb of
 --                Get.Edited True ->
 --                    Ok Submitted
-
 --                _ ->
 --                    Ok NotSubmitted
 --        )

@@ -13,6 +13,7 @@ type alias UniqueIndexDictState =
     , order : Int -- made for the order
     }
 
+
 type alias Form error field output validation submitted =
     { fieldIndexes : Map field FieldIndex
     , listIndexes : FieldIndexDict (UniqueIndexDict UniqueIndexDictState)

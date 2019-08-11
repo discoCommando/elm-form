@@ -34,7 +34,7 @@ type Transaction field
 
 
 type alias Form error field output submitted =
-    Form.Validation.Form error field output submitted 
+    Form.Validation.Form error field output submitted
 
 
 batch : List (Transaction field) -> Transaction field
