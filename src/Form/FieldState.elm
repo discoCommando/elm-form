@@ -1,55 +1,41 @@
-module Form.FieldState exposing (FieldState, FieldValue(..), asBool, asString, boolValue, newFieldState, stringValue)
-
--- type alias Transaction error field output =
---     { newFields : Fields error field
---     , initialForm : Form error field output
---     }
-
+module Form.FieldState exposing (..)
 
 type FieldValue
     = FVString String
     | FVBool Bool
-    | FVEmpty -- should happen only once there is an error in validation
 
+type ErrorState error 
+    = Error error 
+    | Loading 
+    | NoError 
 
-type alias FieldState error =
-    { error : Maybe error
-    , value : FieldValue
+type alias InternalFieldState error = 
+    { value: Maybe FieldValue
+    , errorState: ErrorState error 
     }
+    
+
+getFieldValue : InternalFieldState error -> Maybe FieldValue 
+getFieldValue = 
+    .value
+
+getString : FieldValue -> Maybe String 
+getString fieldValue = 
+    case fieldValue of 
+        FVString s -> 
+            Just s 
+
+        _ -> 
+            Nothing 
+
+getBool : FieldValue -> Maybe Bool 
+getBool fieldValue = 
+    case fieldValue of 
+        FVBool b -> 
+            Just b 
+
+        _ -> 
+            Nothing 
 
 
-stringValue : String -> FieldValue
-stringValue =
-    FVString
 
-
-asString : FieldValue -> Maybe String
-asString fieldValue =
-    case fieldValue of
-        FVString s ->
-            Just s
-
-        _ ->
-            Nothing
-
-
-boolValue : Bool -> FieldValue
-boolValue =
-    FVBool
-
-
-asBool : FieldValue -> Maybe Bool
-asBool fieldValue =
-    case fieldValue of
-        FVBool b ->
-            Just b
-
-        _ ->
-            Nothing
-
-
-newFieldState : FieldValue -> FieldState error
-newFieldState fieldValue =
-    { error = Nothing
-    , value = fieldValue
-    }

@@ -115,10 +115,10 @@ saveHelper transaction form =
                 newValues =
                     case newForm.values |> FieldIndexDict.get fieldIndex of
                         Nothing ->
-                            newForm.values |> FieldIndexDict.set fieldIndex { value = Form.FieldState.stringValue string, error = Nothing }
+                            newForm.values |> FieldIndexDict.set fieldIndex { value = Just <| Form.FieldState.FVString string, errorState = Form.FieldState.NoError }
 
                         Just state ->
-                            newForm.values |> FieldIndexDict.set fieldIndex { state | value = Form.FieldState.stringValue string }
+                            newForm.values |> FieldIndexDict.set fieldIndex { state | value = Just <| Form.FieldState.FVString string }
             in
             ( { newForm | values = newValues }, [ fieldIndex ] )
 
@@ -130,10 +130,10 @@ saveHelper transaction form =
                 newValues =
                     case newForm.values |> FieldIndexDict.get fieldIndex of
                         Nothing ->
-                            newForm.values |> FieldIndexDict.set fieldIndex { value = Form.FieldState.boolValue bool, error = Nothing }
+                            newForm.values |> FieldIndexDict.set fieldIndex { value = Just <| Form.FieldState.FVBool bool, errorState = Form.FieldState.NoError }
 
                         Just state ->
-                            newForm.values |> FieldIndexDict.set fieldIndex { state | value = Form.FieldState.boolValue bool }
+                            newForm.values |> FieldIndexDict.set fieldIndex { state | value = Just <|  Form.FieldState.FVBool bool }
             in
             ( { newForm | values = newValues }, [ fieldIndex ] )
 

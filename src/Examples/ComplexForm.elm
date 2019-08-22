@@ -128,7 +128,7 @@ validation =
 --view
 
 
-errorText : Get.Result a -> Maybe CommonError -> Submitted -> Html msg
+errorText : Get.ValueState a -> Maybe CommonError -> Submitted -> Html msg
 errorText gr me formSubmitted =
     case me of
         Nothing ->

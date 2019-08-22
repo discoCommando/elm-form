@@ -12,7 +12,6 @@ module Form exposing
 -- TYPE SAFE
 
 import Form.Field as Field
-import Form.FieldState exposing (FieldState)
 import Form.Map as Map exposing (Map)
 import Form.Type
 import Form.Validation exposing (Validation, validate_)

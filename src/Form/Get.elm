@@ -1,7 +1,7 @@
-module Form.Get exposing (Result(..), atList, field, getBool, getError, getHelper, getString, indexes, nested, toMaybe)
+module Form.Get exposing (ValueState(..), atList, field, getBool, getError, getHelper, getString, indexes, nested, toMaybe)
 
 import Form.Field as Field
-import Form.FieldState exposing (FieldState)
+import Form.FieldState as FieldState exposing (InternalFieldState)
 import Form.Map as Map
 import Form.Type exposing (Form)
 import Index.FieldIndexDict as FieldIndexDict
@@ -12,13 +12,11 @@ import Index.UniqueIndexDict as UniqueIndexDict
 type Get field resultType
     = Get (Field.Value resultType -> field)
 
+type ValueState resultType 
+    = Edited resultType 
+    | NotEdited 
 
-type Result resultType
-    = Edited resultType
-    | NotEdited
-
-
-toMaybe : Result a -> Maybe a
+toMaybe : ValueState a -> Maybe a
 toMaybe r =
     case r of
         Edited a ->
@@ -27,56 +25,44 @@ toMaybe r =
         NotEdited ->
             Nothing
 
+fromMaybe : Maybe a -> ValueState a 
+fromMaybe ma = 
+    case ma of 
+        Just a -> 
+            Edited a 
+
+        Nothing -> 
+            NotEdited 
+
 
 field : (Field.Value a -> field) -> Get field a
 field =
     Get
 
 
-getString : Get field String -> Form error field output validation submitted -> Result String
+getString : Get field String -> Form error field output validation submitted -> ValueState String
 getString =
-    getHelper <|
-        \mFieldState ->
-            case mFieldState of
-                Nothing ->
-                    NotEdited
-
-                Just fieldState ->
-                    Edited <|
-                        case fieldState.value of
-                            Form.FieldState.FVString s ->
-                                s
-
-                            _ ->
-                                ""
+    getHelper
+        (Maybe.andThen FieldState.getFieldValue 
+            >> Maybe.andThen FieldState.getString 
+            >> fromMaybe) 
 
 
-getBool : Get field Bool -> Form error field output validation submitted -> Result Bool
+getBool : Get field Bool -> Form error field output validation submitted -> ValueState Bool
 getBool =
-    getHelper <|
-        \mFieldState ->
-            case mFieldState of
-                Nothing ->
-                    NotEdited
+    getHelper
+        (Maybe.andThen FieldState.getFieldValue 
+            >> Maybe.andThen FieldState.getBool
+            >> fromMaybe) 
 
-                Just fieldState ->
-                    Edited <|
-                        case fieldState.value of
-                            Form.FieldState.FVBool b ->
-                                b
-
-                            _ ->
-                                False
-
-
-getError : Get field a -> Form error field output validation submitted -> Maybe error
+getError : Get field a -> Form error field output validation submitted ->FieldState.ErrorState error 
 getError =
-    getHelper <|
-        \mFieldState ->
-            mFieldState |> Maybe.andThen .error
+    getHelper
+        (Maybe.map .errorState >> Maybe.withDefault FieldState.NoError)
 
 
-getHelper : (Maybe (FieldState error) -> x) -> Get field a -> Form error field output validation submitted -> x
+
+getHelper : (Maybe (InternalFieldState error) -> x) -> Get field a -> Form error field output validation submitted -> x
 getHelper f (Get fieldF) form_ =
     case form_.fieldIndexes |> Map.get (fieldF Field.Value) of
         Nothing ->

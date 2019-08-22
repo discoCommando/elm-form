@@ -26,7 +26,7 @@ module Form.Validation exposing
 
 import Form.CommonError exposing (CommonError(..))
 import Form.Field as Field
-import Form.FieldState
+import Form.FieldState as FieldState
 import Form.Get as Get
 import Form.Map as Map exposing (Map)
 import Form.Type
@@ -51,14 +51,15 @@ type Validation error field output
 
 
 type ValidationAction error field output
-    = VA_STR field (Get.Result String -> Validation error field output)
-    | VA_BOOL field (Get.Result Bool -> Validation error field output)
+    = VA_STR field (Get.ValueState String -> Validation error field output)
+    | VA_BOOL field (Get.ValueState Bool -> Validation error field output)
     | VA_LIST field (List UniqueIndex -> Validation error field output)
     | VA_LAZY (() -> Validation error field output)
 
 
-type alias FailCell error =
-    { error : Maybe error }
+type FailCell error =
+    Error error 
+    | Loading 
 
 
 type alias FailState error field =
@@ -98,7 +99,7 @@ int =
     String.toInt >> Result.fromMaybe ()
 
 
-optional : (a -> Result error output) -> (Get.Result a -> Result error (Maybe output))
+optional : (a -> Result error output) -> (Get.ValueState a -> Result error (Maybe output))
 optional f gr =
     case gr of
         Get.NotEdited ->
@@ -108,7 +109,7 @@ optional f gr =
             f s |> Result.map Just
 
 
-required : (a -> Result CommonError output) -> (Get.Result a -> Result CommonError output)
+required : (a -> Result CommonError output) -> (Get.ValueState a -> Result CommonError output)
 required f gr =
     case gr of
         Get.NotEdited ->
@@ -118,7 +119,7 @@ required f gr =
             f a
 
 
-fromString : (Field.Value String -> field) -> (Get.Result String -> Result error output) -> Validation error field output
+fromString : (Field.Value String -> field) -> (Get.ValueState String -> Result error output) -> Validation error field output
 fromString fieldF parseFunction =
     V_ACTION <|
         VA_STR
@@ -133,7 +134,7 @@ fromString fieldF parseFunction =
             )
 
 
-fromBool : (Field.Value Bool -> field) -> (Get.Result Bool -> Result error output) -> Validation error field output
+fromBool : (Field.Value Bool -> field) -> (Get.ValueState Bool -> Result error output) -> Validation error field output
 fromBool fieldF parseFunction =
     V_ACTION <|
         VA_BOOL
@@ -146,21 +147,6 @@ fromBool fieldF parseFunction =
                     Ok v ->
                         succeed v
             )
-
-
-
---isSubmitted : (Field.Value Bool -> field) -> Validation error field Submitted
---isSubmitted fieldF =
---    fromBool
---        fieldF
---        (\rb ->
---            case rb of
---                Get.Edited True ->
---                    Ok Submitted
---                _ ->
---                    Ok NotSubmitted
---        )
-
 
 isTrue : (Field.Value Bool -> field) -> Validation CommonError field ()
 isTrue fieldF =
@@ -356,7 +342,11 @@ succeed output =
 
 failure : (Field.Value a -> field) -> error -> Validation error field output
 failure fieldF error =
-    V_RESULT <| VR_FAIL <| FailState <| Map.singleton (fieldF Field.Value) (FailCell (Just error))
+    V_RESULT <| VR_FAIL <| FailState <| Map.singleton (fieldF Field.Value) (Error error)
+
+loading : (Field.Value a -> field) -> Validation error field output 
+loading fieldF = 
+    V_RESULT <| VR_FAIL <| FailState <| Map.singleton (fieldF Field.Value) Loading 
 
 
 lazy : (() -> Validation error field output) -> Validation error field output
@@ -418,7 +408,7 @@ validate_ form =
 
 clearErrors : Form error field output submitted -> Form error field output submitted
 clearErrors form =
-    { form | values = form.values |> FieldIndexDict.map (\state -> { state | error = Nothing }) }
+    { form | values = form.values |> FieldIndexDict.map (\state -> { state | errorState = FieldState.NoError }) }
 
 
 setErrors : List ( field, FailCell error ) -> Form error field output submitted -> Form error field output submitted
@@ -442,13 +432,21 @@ setErrors errors form =
                         Just fi ->
                             ( fi, form )
 
+                errorState = 
+                    case failCell of 
+                        Error error -> 
+                            FieldState.Error error 
+
+                        Loading -> 
+                            FieldState.Loading
+
                 newValues =
                     case newForm.values |> FieldIndexDict.get fieldIndex of
                         Nothing ->
-                            newForm.values |> FieldIndexDict.set fieldIndex { value = Form.FieldState.FVEmpty, error = failCell.error }
+                            newForm.values |> FieldIndexDict.set fieldIndex { value = Nothing, errorState = errorState }
 
                         Just state ->
-                            newForm.values |> FieldIndexDict.set fieldIndex { state | error = failCell.error }
+                            newForm.values |> FieldIndexDict.set fieldIndex { state | errorState = errorState }
             in
             setErrors rest { newForm | values = newValues }
 
@@ -466,11 +464,11 @@ merge fields1 fields2 =
                                     failCell
 
                                 Just failCell2 ->
-                                    case failCell.error of
-                                        Nothing ->
-                                            failCell2
+                                    case failCell of 
+                                        Loading -> 
+                                            failCell2 
 
-                                        _ ->
+                                        Error error -> 
                                             failCell
                         )
             )
@@ -495,4 +493,9 @@ mapError f validation =
                         VR_SUCCESS { output = output }
 
                     VR_FAIL { errors } ->
-                        VR_FAIL { errors = errors |> Map.mapValue (\{ error } -> { error = Maybe.map f error }) }
+                        VR_FAIL { errors = errors |> Map.mapValue (\failCell -> case failCell of 
+                            Error e -> 
+                                Error (f e)
+                            Loading -> 
+                                Loading 
+                        ) }

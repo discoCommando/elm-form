@@ -15,7 +15,6 @@ module Form.View exposing
     , removeLastRow
     , removeRow
     , stringInput
-    , submit
     , update
     )
 
@@ -27,12 +26,13 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Index.UniqueIndex exposing (UniqueIndex)
+import Form.FieldState as FieldState
 
 
 type View error field msg
-    = VI_STRING (Field.Value String -> field) (Get.Result String -> Maybe error -> Html msg)
-    | VI_BOOL (Field.Value Bool -> field) (Get.Result Bool -> Maybe error -> Html msg)
-    | VI_HTML (Html msg)
+    = VI_STRING (Field.Value String -> field) (Get.ValueState String -> FieldState.ErrorState error -> Html msg)
+    | VI_BOOL (Field.Value Bool -> field) (Get.ValueState Bool -> FieldState.ErrorState error -> Html msg)
+    | VI_HTML (Html msg) 
     | VI_VIEW String (List (Html.Attribute msg)) (List (View error field msg))
     | VI_REMOVELASTROW field (Maybe UniqueIndex -> Html msg)
     | VI_INLIST field (List UniqueIndex -> View error field msg)
@@ -125,7 +125,6 @@ inForm form view =
 
 type FormMsg field
     = TransactionMsg (Transaction field)
-    | SubmitMsg
 
 
 mapMsg : (field1 -> field2) -> FormMsg field1 -> FormMsg field2
@@ -134,24 +133,16 @@ mapMsg f msg =
         TransactionMsg t ->
             TransactionMsg (Form.Transaction.map f t)
 
-        SubmitMsg ->
-            SubmitMsg
+   
 
-
-stringInput : (Field.Value String -> field) -> ((String -> FormMsg field) -> Get.Result String -> Maybe error -> Html msg) -> View error field msg
+stringInput : (Field.Value String -> field) -> ((String -> FormMsg field) -> Get.ValueState String -> FieldState.ErrorState error -> Html msg) -> View error field msg
 stringInput field f =
     VI_STRING field (f (Form.Transaction.setString field >> TransactionMsg))
 
 
-boolInput : (Field.Value Bool -> field) -> ((Bool -> FormMsg field) -> Get.Result Bool -> Maybe error -> Html msg) -> View error field msg
+boolInput : (Field.Value Bool -> field) -> ((Bool -> FormMsg field) -> Get.ValueState Bool -> FieldState.ErrorState error -> Html msg) -> View error field msg
 boolInput field f =
     VI_BOOL field (f (Form.Transaction.setBool field >> TransactionMsg))
-
-
-submit : (FormMsg field -> Html msg) -> View error field msg
-submit f =
-    VI_HTML <| f SubmitMsg
-
 
 node : String -> List (Attribute msg) -> List (View error field msg) -> View error field msg
 node nodeName attrs views =
@@ -189,5 +180,3 @@ update msg form =
         TransactionMsg transaction ->
             form |> Form.Transaction.save transaction
 
-        SubmitMsg ->
-            { form | submitted = Submitted }
