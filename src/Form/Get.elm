@@ -55,7 +55,7 @@ getBool =
             >> Maybe.andThen FieldState.getBool
             >> fromMaybe) 
 
-getError : Get field a -> Form error field output validation submitted ->FieldState.ErrorState error 
+getError : Get field a -> Form error field output validation submitted -> FieldState.ErrorState error 
 getError =
     getHelper
         (Maybe.map .errorState >> Maybe.withDefault FieldState.NoError)

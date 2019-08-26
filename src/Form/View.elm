@@ -16,6 +16,7 @@ module Form.View exposing
     , removeRow
     , stringInput
     , update
+    , submit
     )
 
 import Form.Field as Field
@@ -125,6 +126,7 @@ inForm form view =
 
 type FormMsg field
     = TransactionMsg (Transaction field)
+    | SubmitMsg 
 
 
 mapMsg : (field1 -> field2) -> FormMsg field1 -> FormMsg field2
@@ -132,6 +134,9 @@ mapMsg f msg =
     case msg of
         TransactionMsg t ->
             TransactionMsg (Form.Transaction.map f t)
+
+        SubmitMsg -> 
+            SubmitMsg 
 
    
 
@@ -180,3 +185,18 @@ update msg form =
         TransactionMsg transaction ->
             form |> Form.Transaction.save transaction
 
+        SubmitMsg -> 
+            { form | submitted = Submitted}
+
+isSubmitMsg : FormMsg field -> Bool 
+isSubmitMsg msg = 
+    case msg of 
+        SubmitMsg -> 
+            True 
+
+        _ -> 
+            False 
+
+submit : (FormMsg field -> Html msg) -> View error field msg 
+submit submitFunction = 
+    VI_HTML (submitFunction SubmitMsg)

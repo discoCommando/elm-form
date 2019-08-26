@@ -1,27 +1,5 @@
 module Form.Validation exposing
-    ( Form
-    , Validation
-    , andMap
-    , andMapDiscard
-    , andThen
-    , anyString
-    , failure
-    , fromBool
-    , fromList
-    , fromNested
-    , fromString
-    , int
-    , isTrue
-    , lazy
-    , makeList
-    , map
-    , mapError
-    , mapField
-    , nonEmptyString
-    , optional
-    , required
-    , succeed
-    , validate_
+    ( ..
     )
 
 import Form.CommonError exposing (CommonError(..))
@@ -79,52 +57,53 @@ type alias Form error field output submitted =
     Form.Type.Form error field output (Validation error field output) submitted
 
 
-anyString : String -> Result x String
-anyString s =
-    Ok s
-
-
-nonEmptyString : String -> Result CommonError String
-nonEmptyString s =
-    case s of
-        "" ->
-            Err NoInput
-
-        _ ->
-            Ok s
-
+string : String -> Result error String 
+string = Ok 
 
 int : String -> Result () Int
 int =
     String.toInt >> Result.fromMaybe ()
 
 
-optional : (a -> Result error output) -> (Get.ValueState a -> Result error (Maybe output))
+optional : (String -> Result error output) -> (Get.ValueState String -> Result error (Maybe output))
 optional f gr =
     case gr of
         Get.NotEdited ->
             Ok Nothing
 
         Get.Edited s ->
-            f s |> Result.map Just
+            case s of 
+                "" -> 
+                    Ok Nothing 
+
+                _ -> 
+                    f s |> Result.map Just
 
 
-required : (a -> Result CommonError output) -> (Get.ValueState a -> Result CommonError output)
+required : (String -> Result CommonError output) -> (Get.ValueState String -> Result CommonError output)
 required f gr =
     case gr of
         Get.NotEdited ->
             Err NoInput
 
-        Get.Edited a ->
-            f a
+        Get.Edited s ->
+            case s of 
+                "" -> 
+                    Err NoInput
+
+                _ ->  
+                    f s
 
 
-fromString : (Field.Value String -> field) -> (Get.ValueState String -> Result error output) -> Validation error field output
+fromString : (Field.Value String -> field) -> (String -> Result error output) -> Validation error field output
 fromString fieldF parseFunction =
     V_ACTION <|
         VA_STR
             (fieldF Field.Value)
-            (\s ->
+            (\gs ->
+                let 
+                    s = gs |> Get.toMaybe |> Maybe.withDefault ""
+                in
                 case parseFunction s of
                     Err error ->
                         failure fieldF error
@@ -134,12 +113,15 @@ fromString fieldF parseFunction =
             )
 
 
-fromBool : (Field.Value Bool -> field) -> (Get.ValueState Bool -> Result error output) -> Validation error field output
+fromBool : (Field.Value Bool -> field) -> (Bool -> Result error output) -> Validation error field output
 fromBool fieldF parseFunction =
     V_ACTION <|
         VA_BOOL
             (fieldF Field.Value)
-            (\b ->
+            (\gb ->
+                let 
+                    b = gb |> Get.toMaybe |> Maybe.withDefault False
+                in
                 case parseFunction b of
                     Err error ->
                         failure fieldF error
@@ -151,17 +133,12 @@ fromBool fieldF parseFunction =
 isTrue : (Field.Value Bool -> field) -> Validation CommonError field ()
 isTrue fieldF =
     fromBool fieldF
-        (\rb ->
-            case rb of
-                Get.NotEdited ->
-                    Err NoInput
+        (\b ->
+            if b then
+                Ok ()
 
-                Get.Edited b ->
-                    if b then
-                        Ok ()
-
-                    else
-                        Err NoInput
+            else
+                Err NoInput
         )
 
 
@@ -285,6 +262,17 @@ makeList fieldListF validation uidxs =
             succeed (::)
                 |> andMap mappedValidation
                 |> andMap (makeList fieldListF validation rest)
+
+traverse : List (Validation error x output) -> Validation error x (List output)
+traverse list = 
+    case list of 
+        [] -> 
+            succeed [] 
+
+        first :: rest -> 
+            succeed (::)
+                |> andMap first 
+                |> andMap (traverse rest)
 
 
 andMapVA : ValidationAction error field output1 -> Validation error field (output1 -> output2) -> ValidationAction error field output2
