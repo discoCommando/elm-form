@@ -2,14 +2,10 @@
     "type": "package",
     "name": "discoCommando/elm-form",
     "summary": "Library for writing forms with complex validation",
-    "version": "1.0.0",
     "license": "BSD-3-Clause",
+    "version": "1.0.0",
     "exposed-modules": [
         "Form"
-    ],
-    "source-directories": [
-        ".",
-        "src/"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
@@ -19,9 +15,8 @@
         "elm/json": "1.0.0 <= v < 2.0.0",
         "elm/time": "1.0.0 <= v < 2.0.0",
         "elm/url": "1.0.0 <= v < 2.0.0",
-        "elm/virtual-dom": "1.0.2 <= v < 2.0.0"
+        "elm/virtual-dom": "1.0.2 <= v < 2.0.0",
+        "mdgriffith/elm-ui": "1.1.5 <= v < 2.0.0"
     },
-    "test-dependencies": {
-        
-    }
+    "test-dependencies": {}
 }
