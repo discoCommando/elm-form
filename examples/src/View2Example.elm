@@ -8,7 +8,7 @@ import Form.Get as Get
 import Form.CommonError exposing (CommonError)
 import Html 
 import Form.View.Element as Element
-import Element as Element_
+import Element
 import Form.Transaction as Transaction 
 
 type Field 
@@ -82,5 +82,9 @@ type Element msg = Element.Element CommonError Field msg
 
 viewForm : Element (Transaction Field)
 viewForm = 
+    Element.column
+        [ Element_]
+        [ 
+        ] 
      
 
