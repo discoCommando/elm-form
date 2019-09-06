@@ -65,7 +65,7 @@ type alias Form =
 
 type alias Validation output =
     Form.Validation CommonError Field output
-
+        
 
 parseEmail : String -> Result CommonError Email
 parseEmail s =

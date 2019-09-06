@@ -13,7 +13,6 @@ import Form.FieldState as FieldState
 type View error field result 
     = VI_STRING (Field.Value String -> field) (Get.ValueState String -> FieldState.ErrorState error -> result)
     | VI_PURE result 
-    | VI_CONT (View error field result) (result -> result)
 
 type Submitted
     = Submitted
@@ -32,9 +31,6 @@ mapField f view =
         VI_PURE res -> 
             VI_PURE res 
 
-        VI_CONT view_ cont -> 
-            VI_CONT (mapField f view_) cont
-
 
 map : (result1 -> result2) -> View error field result1 -> View error field result2 
 map f view = 
@@ -44,9 +40,6 @@ map f view =
 
         VI_PURE res -> 
             VI_PURE (res |> f)
-
-        VI_CONT view_ cont -> 
-            VI_CONT (map f view_) (\result2 -> )
 
 mapBoth : (field1 -> field2) -> (result1 -> result2) -> View error field1 result1 -> View error field2 result2
 mapBoth ff fr = 
