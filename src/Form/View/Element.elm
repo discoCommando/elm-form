@@ -62,6 +62,7 @@ type Attribute error field msg
     = AT_PURE (Element.Attribute msg)
     | AT_ELEMENT NearbyElement (Element error field msg)
 
+
 type Placeholder error field msg 
     = PL_placeholder (List (Attribute error field msg)) (Element error field msg) 
 
@@ -109,6 +110,11 @@ height : Length -> Attribute error field msg
 height length =
     AT_PURE (Element.height length)
 
+pureAttribute : Element.Attribute msg -> Attribute error field msg 
+pureAttribute = AT_PURE 
+
+pureElement : Element.Element msg -> Element error field msg 
+pureElement element = EL_INTERNAL <| InternalView.VI_PURE element 
 
 below : Element error field msg -> Attribute error field msg 
 below = AT_ELEMENT NE_below

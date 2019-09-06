@@ -16,11 +16,11 @@ text : (Field.Value String -> field) -> (FieldState.ErrorState error -> { attrib
 text field cont = 
     EL_TEXT TI_text field (\errorState -> 
         let
-            { attributes, placeholder, label } = cont errorState   
+            data = cont errorState   
         in
-        { attributes = attributes
-        , placeholder = placeholder
-        , label = label 
+        { attributes = data.attributes
+        , placeholder = data.placeholder
+        , label = data.label 
         , show = False
         , spellcheck = False
         , onChange = Transaction.setString field
@@ -31,11 +31,11 @@ spellChecked : (Field.Value String -> field) -> (FieldState.ErrorState error -> 
 spellChecked field cont = 
     EL_TEXT TI_spellChecked field (\errorState ->
         let 
-            { attributes, placeholder, label } = cont errorState
+            data = cont errorState
         in 
-        { attributes = attributes
-        , placeholder = placeholder
-        , label = label 
+        { attributes = data.attributes
+        , placeholder = data.placeholder
+        , label = data.label 
         , show = False
         , spellcheck = False
         , onChange = Transaction.setString field
@@ -45,11 +45,11 @@ search : (Field.Value String -> field) -> (FieldState.ErrorState error -> { attr
 search field cont = 
     EL_TEXT TI_search field (\errorState ->
         let 
-            { attributes, placeholder, label } = cont errorState
+            data = cont errorState
         in 
-        { attributes = attributes
-        , placeholder = placeholder
-        , label = label 
+        { attributes = data.attributes
+        , placeholder = data.placeholder
+        , label = data.label 
         , show = False
         , spellcheck = False
         , onChange = Transaction.setString field
@@ -59,12 +59,12 @@ newPassword : (Field.Value String -> field) -> (FieldState.ErrorState error -> {
 newPassword field cont = 
     EL_TEXT TI_newPassword field (\errorState ->
         let 
-            { attributes, placeholder, label, show } = cont errorState
+            data = cont errorState
         in 
-        { attributes = attributes
-        , placeholder = placeholder
-        , label = label 
-        , show = show
+        { attributes = data.attributes
+        , placeholder = data.placeholder
+        , label = data.label 
+        , show = data.show
         , spellcheck = False
         , onChange = Transaction.setString field
         })
@@ -73,12 +73,12 @@ currentPassword : (Field.Value String -> field) -> (FieldState.ErrorState error 
 currentPassword field cont = 
     EL_TEXT TI_currentPassword field (\errorState ->
         let 
-            { attributes, placeholder, label, show } = cont errorState
+            data = cont errorState
         in 
-        { attributes = attributes
-        , placeholder = placeholder
-        , label = label 
-        , show = show
+        { attributes = data.attributes
+        , placeholder = data.placeholder
+        , label = data.label 
+        , show = data.show
         , spellcheck = False
         , onChange = Transaction.setString field
         })
@@ -87,11 +87,11 @@ username : (Field.Value String -> field) -> (FieldState.ErrorState error -> { at
 username field cont = 
     EL_TEXT TI_username field (\errorState ->
         let 
-            { attributes, placeholder, label } = cont errorState
+            data = cont errorState
         in 
-        { attributes = attributes
-        , placeholder = placeholder
-        , label = label 
+        { attributes = data.attributes
+        , placeholder = data.placeholder
+        , label = data.label 
         , show = False
         , spellcheck = False
         , onChange = Transaction.setString field
@@ -101,11 +101,11 @@ email : (Field.Value String -> field) -> (FieldState.ErrorState error -> { attri
 email field cont = 
     EL_TEXT TI_email field (\errorState ->
         let 
-            { attributes, placeholder, label } = cont errorState
+            data = cont errorState
         in 
-        { attributes = attributes
-        , placeholder = placeholder
-        , label = label 
+        { attributes = data.attributes
+        , placeholder = data.placeholder
+        , label = data.label 
         , show = False
         , spellcheck = False
         , onChange = Transaction.setString field
@@ -115,13 +115,13 @@ multiline : (Field.Value String -> field) -> (FieldState.ErrorState error -> { a
 multiline field cont = 
     EL_TEXT TI_multiline field (\errorState ->
         let 
-            { attributes, placeholder, label, spellcheck } = cont errorState
+            data = cont errorState
         in 
-        { attributes = attributes
-        , placeholder = placeholder
-        , label = label 
+        { attributes = data.attributes
+        , placeholder = data.placeholder
+        , label = data.label 
         , show = False
-        , spellcheck = spellcheck
+        , spellcheck = data.spellcheck
         , onChange = Transaction.setString field
         })
      
@@ -145,3 +145,6 @@ labelBelow =
 labelHidden : String -> Label error field msg 
 labelHidden =
     L_Hidden
+
+placeholder : List (Attribute error field msg) -> Element error field msg -> Placeholder error field msg 
+placeholder = PL_placeholder

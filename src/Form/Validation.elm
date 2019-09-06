@@ -60,39 +60,29 @@ type alias Form error field output submitted =
 string : String -> Result error String 
 string = Ok 
 
-int : String -> Result () Int
+int : String -> Result CommonError Int
 int =
-    String.toInt >> Result.fromMaybe ()
+    String.toInt >> Result.fromMaybe (Form.CommonError.Custom "Field must be a number")
 
 
-optional : (String -> Result error output) -> (Get.ValueState String -> Result error (Maybe output))
-optional f gr =
-    case gr of
-        Get.NotEdited ->
-            Ok Nothing
+optional : (String -> Result error output) -> (String -> Result error (Maybe output))
+optional f s =
+    case s of 
+        "" -> 
+            Ok Nothing 
 
-        Get.Edited s ->
-            case s of 
-                "" -> 
-                    Ok Nothing 
-
-                _ -> 
-                    f s |> Result.map Just
+        _ -> 
+            f s |> Result.map Just
 
 
-required : (String -> Result CommonError output) -> (Get.ValueState String -> Result CommonError output)
-required f gr =
-    case gr of
-        Get.NotEdited ->
+required : (String -> Result CommonError output) -> (String -> Result CommonError output)
+required f s =
+    case s of 
+        "" -> 
             Err NoInput
 
-        Get.Edited s ->
-            case s of 
-                "" -> 
-                    Err NoInput
-
-                _ ->  
-                    f s
+        _ ->  
+            f s
 
 
 fromString : (Field.Value String -> field) -> (String -> Result error output) -> Validation error field output

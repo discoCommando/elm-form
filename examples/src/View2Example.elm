@@ -2,14 +2,19 @@ module View2Example exposing (..)
 
 
 import Form 
-import Form.Validation exposing (..)
+import Form.Validation exposing (succeed, andMap, string, fromString, required, failure, andThen, int, optional)
+import Form.FieldState as FieldState exposing (ErrorState(..))
 import Form.Field as Field 
 import Form.Get as Get
-import Form.CommonError exposing (CommonError)
+import Form.CommonError as CommonError exposing (CommonError(..))
 import Html 
 import Form.View.Element as Element
-import Element
-import Form.Transaction as Transaction 
+import Form.View.Element.Input as Input
+import Element as Element_
+import Element.Font as Font 
+import Form.Transaction as Transaction  exposing (Transaction)
+import Html exposing (Html)
+import Browser
 
 type Field 
     = FirstName (Field.Value String)
@@ -20,7 +25,7 @@ type Field
 type alias Output = { firstName: String, number: Maybe Int, password : Password }
 
 type alias Form =
-    Form.Form CommonError Field Result 
+    Form.Form CommonError Field Output 
 
 
 type alias Validation output =
@@ -60,8 +65,8 @@ validation =
         |> andMap passwordValidation
 
 
-form : Form 
-form = Form.form validation 
+initialForm : Form 
+initialForm = Form.form validation 
 
 
 type alias Model = { form : Form }
@@ -78,13 +83,59 @@ view : Model -> Html Msg
 view { form } = 
     viewForm |> Element.inForm form |> Element_.layout [] |> Html.map T
 
-type Element msg = Element.Element CommonError Field msg
+type alias Element msg = Element.Element CommonError Field msg
+type alias Attribute msg = Element.Attribute CommonError Field msg 
 
 viewForm : Element (Transaction Field)
 viewForm = 
     Element.column
-        [ Element_]
-        [ 
+        [ Element_.spacing 10 |> Element.pureAttribute ]
+        [ Input.text FirstName (\error -> 
+            { attributes = errorAttributes error
+            , label = Input.labelLeft [ Element.centerX, Element.centerY, Element_.width (Element_.px 100) |> Element.pureAttribute ] (Element_.text "First name" |> Element.pureElement)
+            , placeholder = Just <| Input.placeholder [ Element.centerX, Element.centerY ] (Element_.text "Adam etc..." |> Element.pureElement)
+            })
+        , Input.text Number (\error -> 
+            { attributes = errorAttributes error  
+            , label = Input.labelLeft [ Element.centerX, Element.centerY, Element_.width (Element_.px 100) |> Element.pureAttribute ] (Element_.text "Number" |> Element.pureElement)
+            , placeholder = Just <| Input.placeholder [ Element.centerX, Element.centerY ] (Element_.text "1,2.." |> Element.pureElement)
+            })
+        , Input.newPassword Password (\error -> 
+            { attributes = errorAttributes error  
+            , label = Input.labelLeft [ Element.centerX, Element.centerY, Element_.width (Element_.px 100) |> Element.pureAttribute ] (Element_.text "Password" |> Element.pureElement)
+            , placeholder = Just <| Input.placeholder [ Element.centerX, Element.centerY ] (Element_.text "abc123.." |> Element.pureElement)
+            , show = False 
+            })
+        , Input.newPassword RepeatPassword (\error -> 
+            { attributes = errorAttributes error 
+            , label = Input.labelLeft [ Element.centerX, Element.centerY, Element_.width (Element_.px 100) |> Element.pureAttribute ] (Element_.text "Password" |> Element.pureElement)
+            , placeholder = Just <| Input.placeholder [ Element.centerX, Element.centerY ] (Element_.text "abc123.." |> Element.pureElement)
+            , show = True
+            })
         ] 
      
+errorAttributes : FieldState.ErrorState CommonError -> List (Attribute (Transaction Field))
+errorAttributes error =
+    case error of 
+        NoError -> [] 
+        Loading -> []
+        Error e -> 
+            let 
+                t = 
+                    case e of 
+                        NoInput -> 
+                            "Field is required"
 
+                        Custom s -> 
+                            s 
+            in 
+            [ Element.onRight <| Element.el [Font.color (Element_.rgb 1 0 0) |> Element.pureAttribute, Element.centerX, Element.centerY ] <| Element.pureElement <| Element_.text t ]
+
+
+main : Program () Model Msg
+main =
+    Browser.sandbox
+        { init = { form = initialForm }
+        , view = view
+        , update = update
+        }
