@@ -52,6 +52,12 @@ type ValidationResult error field output
     = VR_FAIL (FailState error field)
     | VR_SUCCESS (SuccessState output)
 
+type Free error field a 
+    = Impure (Validation error field (Free error field a))
+    | Pure a
+     
+andMapFree : 
+
 
 type alias Form error field output submitted =
     Form.Type.Form error field output (Validation error field output) submitted
@@ -190,17 +196,17 @@ mapVAVs f validationAction =
 
 mapVA : (o1 -> o2) -> ValidationAction error field o1 -> ValidationAction error field o2
 mapVA f =
-    mapVAVs (map f)
+    mapvavs (map f)
 
 
-mapVR : (o1 -> o2) -> ValidationResult error field o1 -> ValidationResult error field o2
-mapVR f validationResult =
-    case validationResult of
-        VR_SUCCESS { output } ->
-            VR_SUCCESS { output = f output }
+mapvr : (o1 -> o2) -> validationresult error field o1 -> validationresult error field o2
+mapvr f validationresult =
+    case validationresult of
+        vr_success { output } ->
+            vr_success { output = f output }
 
-        VR_FAIL failState ->
-            VR_FAIL failState
+        vr_fail failstate ->
+            vr_fail failstate
 
 
 map : (o1 -> o2) -> Validation error field o1 -> Validation error field o2
@@ -211,6 +217,7 @@ map f validation =
 
         V_RESULT vr ->
             V_RESULT (mapVR f vr)
+
 
 
 andThenVA : (output1 -> Validation error field output2) -> ValidationAction error field output1 -> ValidationAction error field output2
