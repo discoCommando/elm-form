@@ -202,10 +202,10 @@ mapVA f =
 mapvr : (o1 -> o2) -> validationresult error field o1 -> validationresult error field o2
 mapvr f validationresult =
     case validationresult of
-        vr_success { output } ->
+        Vr_success { output } ->
             vr_success { output = f output }
 
-        vr_fail failstate ->
+        Vr_fail failstate ->
             vr_fail failstate
 
 
